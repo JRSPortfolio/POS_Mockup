@@ -11,9 +11,15 @@ def create_db_category(db_session: Session, category_name: str, desc: str):
     db_session.refresh(db_category)
     
 def validate_category_name(db_session: Session, category_name: str):
-    name = db_session.query(Categoria).filter(Categoria.name == category_name).first()
+    name = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
     
     if name:
-        return f"Já existe uma categoria {category_name}"
+        messages = [f"Já existe uma categoria {category_name}"]
+        return messages
     else:
         return None
+    
+def get_categories_list(db_session: Session):
+    category_names = db_session.query(Categoria.cat_name).all()
+    categories = [category[0] for category in category_names]
+    return categories

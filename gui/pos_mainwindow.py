@@ -4,7 +4,8 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGro
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 import sys
-from gui.pos_add_models import AddUserWindow, AddCategoryWindow ,AddProductWindow, EditRemCatProdWindow
+from gui.pos_add_models import (AddUserWindow, AddCategoryWindow ,AddProductWindow, EditRemCatProdWindow,
+                                open_new_window)
 
 class POSMainWindow(QMainWindow):
     def __init__(self):
@@ -81,10 +82,10 @@ class POSMainWindow(QMainWindow):
         set_iva_action = QAction('IVA', self)
         options_menu.addAction(set_iva_action)
         
-        add_user_action.triggered.connect(lambda: self.open_new_window(AddUserWindow()))
-        add_category_action.triggered.connect(lambda: self.open_new_window(AddCategoryWindow()))
-        add_product_action.triggered.connect(lambda: self.open_new_window(AddProductWindow()))
-        edit_cat_prod_action.triggered.connect(lambda: self.open_new_window(EditRemCatProdWindow()))
+        add_user_action.triggered.connect(lambda: open_new_window(AddUserWindow()))
+        add_category_action.triggered.connect(lambda: open_new_window(AddCategoryWindow()))
+        add_product_action.triggered.connect(lambda: open_new_window(AddProductWindow()))
+        edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditRemCatProdWindow()))
         
     def set_options_section(self):
         user_button = QPushButton('Utilizador')
@@ -102,10 +103,7 @@ class POSMainWindow(QMainWindow):
 
         self.payment_section_layout.addWidget(print_button)
         self.payment_section_layout.addWidget(payment_button)
-        
-    def open_new_window(self, new_window):
-        open_qdialog = new_window
-        open_qdialog.exec()
+
         
         
 
