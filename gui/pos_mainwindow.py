@@ -3,9 +3,8 @@
 from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QPushButton
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
-from PyQt6.QtWidgets import QApplication
 import sys
-from pos_add_models import AddUserWindow, AddCategoryWindow ,AddProductWindow
+from gui.pos_add_models import AddUserWindow, AddCategoryWindow ,AddProductWindow, EditRemCatProdWindow
 
 class POSMainWindow(QMainWindow):
     def __init__(self):
@@ -64,8 +63,7 @@ class POSMainWindow(QMainWindow):
         menubar = self.menuBar()
         
         user_menu = menubar.addMenu('Utilizador')
-        categories_menu = menubar.addMenu('Cateorias')
-        products_menu = menubar.addMenu('Produtos')
+        cat_prod_menu = menubar.addMenu('Cateorias/Produtos')
         options_menu = menubar.addMenu('Opções')
         
         add_user_action = QAction('Criar Utilizador', self)
@@ -74,22 +72,19 @@ class POSMainWindow(QMainWindow):
         user_menu.addAction(user_options_action)
         
         add_category_action = QAction('Adiconar Categoria', self)
-        edit_category_action = QAction('Editar/Remover Categoria', self)
-        categories_menu.addAction(add_category_action)
-        categories_menu.addAction(edit_category_action)
-        
         add_product_action = QAction('Adiconar Produto', self)
-        edit_product_action = QAction('Editar/Remover Produto', self)
-        products_menu.addAction(add_product_action)
-        products_menu.addAction(edit_product_action)
-        
+        edit_cat_prod_action = QAction('Editar/Remover Categoria/Produto', self)
+        cat_prod_menu.addAction(add_category_action)
+        cat_prod_menu.addAction(add_product_action)
+        cat_prod_menu.addAction(edit_cat_prod_action)
+                
         set_iva_action = QAction('IVA', self)
         options_menu.addAction(set_iva_action)
         
         add_user_action.triggered.connect(lambda: self.open_new_window(AddUserWindow()))
         add_category_action.triggered.connect(lambda: self.open_new_window(AddCategoryWindow()))
         add_product_action.triggered.connect(lambda: self.open_new_window(AddProductWindow()))
-        
+        edit_cat_prod_action.triggered.connect(lambda: self.open_new_window(EditRemCatProdWindow()))
         
     def set_options_section(self):
         user_button = QPushButton('Utilizador')
@@ -113,10 +108,5 @@ class POSMainWindow(QMainWindow):
         open_qdialog.exec()
         
         
-        
-          
-app = QApplication(sys.argv)  
-window = POSMainWindow()
-window.show()
-sys.exit(app.exec())
+
         
