@@ -1,15 +1,18 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QCheckBox, 
-                            QPushButton, QTextEdit, QComboBox, QTableWidget)
+                            QPushButton, QTextEdit, QComboBox, QTableWidget, QApplication)
 from PyQt6.QtCore import Qt
 from database.pos_crud import create_db_category, validate_category_name, get_categories_list
 from database.mysql_engine import session
 
-class AddUserWindow(QDialog):
+class POSDialog(QDialog):
     def __init__(self):
-        super(AddUserWindow, self).__init__()
+        super(POSDialog, self).__init__()
         
-        self.set_widgets_placements()
-    
+        if self.set_widgets_placements():
+            self.set_widgets_placements()
+
+class AddUserWindow(POSDialog):
+
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 450, 230)
         self.setWindowTitle('Adicionar Utilizador')
@@ -54,12 +57,8 @@ class AddUserWindow(QDialog):
         
         add_user_close_button.clicked.connect(lambda: self.close())
         
-class AddCategoryWindow(QDialog):
-    def __init__(self):
-        super(AddCategoryWindow, self).__init__()
-        
-        self.set_widgets_placements()
-    
+class AddCategoryWindow(POSDialog):
+
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 450, 230)
         self.setWindowTitle('Adicionar Categoria')
@@ -94,7 +93,7 @@ class AddCategoryWindow(QDialog):
         
         add_category_create_button.clicked.connect(self.create_category)
         add_category_close_button.clicked.connect(self.close)
-        
+                
     def create_category(self):
         name = self.add_category_name_line_edit.text()
         description = self.add_category_description_text_edit.toPlainText()
@@ -108,23 +107,21 @@ class AddCategoryWindow(QDialog):
             open_new_window(message_window)
             self.add_category_name_line_edit.clear()
             self.add_category_description_text_edit.clear()
-            
         else:
             message_title = "Nome de Categoria"
             message_window = MessageWindow(message_title, messages)
             open_new_window(message_window)
             self.add_category_name_line_edit.clear()
 
-class AddProductWindow(QDialog):
-    def __init__(self):
+class AddProductWindow(POSDialog):
+    def __init__(self, category_list: list):
+        self.category_list = category_list
         super(AddProductWindow, self).__init__()
-                
-        self.set_widgets_placements()
-    
+        
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 500, 200)
         self.setWindowTitle('Adicionar Produto')
-        
+                
         add_product_layout = QVBoxLayout()
         self.setLayout(add_product_layout)
 
@@ -145,7 +142,7 @@ class AddProductWindow(QDialog):
         add_product_description_label = QLabel("Descrição")
         self.add_product_description_text_edit = QTextEdit()
         add_product_create_button = QPushButton('Adicionar Produto')
-        add_product_close_button = QPushButton('Fechar')
+        self.add_product_close_button = QPushButton('Fechar')
         
         add_product_name_label.setFixedWidth(120)
         add_product_price_label.setFixedWidth(120)
@@ -155,14 +152,10 @@ class AddProductWindow(QDialog):
         add_product_description_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.add_product_description_text_edit.setMinimumHeight(80)
         add_product_create_button.setFixedSize(140, 40)
-        add_product_close_button.setFixedSize(140, 40)
+        self.add_product_close_button.setFixedSize(140, 40)
         
-        self.set_combo_box()
-        # if check_categories:
-        #     pass
-        # else:
-        #     self.close()
-        #     return
+        for category in self.category_list:
+            self.add_product_category_combo_box.addItem(category)
                         
         add_product_fields_layout.addWidget(add_product_name_label, 0, 0)
         add_product_fields_layout.addWidget(self.add_product_name_line_edit, 0, 1)
@@ -176,31 +169,12 @@ class AddProductWindow(QDialog):
         add_product_fields_layout.addWidget(add_product_description_label, 5, 0)
         add_product_fields_layout.addWidget(self.add_product_description_text_edit, 5, 1)
         add_product_buttons_layout.addWidget(add_product_create_button)
-        add_product_buttons_layout.addWidget(add_product_close_button)
+        add_product_buttons_layout.addWidget(self.add_product_close_button)
         
-        add_product_close_button.clicked.connect(self.close)
-                    
-    def set_combo_box(self):
-        cat_list = get_categories_list(session)
-        if cat_list:
-            for category in cat_list:
-                self.add_product_category_combo_box.addItem(category)
-        else:
-            title = "Sem Categorias"
-            message = "É necessário Categorias para adicionar Produto.\nCriar Categoria?"
-            button_title = "Criar Categoria"
-            new_window = MissingValueWindow(title, message, button_title, AddCategoryWindow())
-            open_new_window(new_window)
-            self.close()
-
-
-            
-class EditRemCatProdWindow(QDialog):
-    def __init__(self):
-        super(EditRemCatProdWindow, self).__init__()
+        self.add_product_close_button.clicked.connect(self.close)   
         
-        self.set_widgets_placements()
-    
+class EditRemCatProdWindow(POSDialog):
+
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 500, 200)
         self.setWindowTitle('Editar/Remover Categoria/Produto')
@@ -240,6 +214,41 @@ class EditRemCatProdWindow(QDialog):
         edit_rem_cat_pro_button_layout.addWidget(edit_rem_close_button)
         
         edit_rem_close_button.clicked.connect(self.close)
+        
+class SetIVAWindow(POSDialog):
+
+    def set_widgets_placements(self):
+        self.setGeometry(200, 200, 450, 230)
+        self.setWindowTitle('Adicionar Categoria')
+        iva_layout = QVBoxLayout()
+        self.setLayout(iva_layout)
+        
+        iva_fields_layout = QGridLayout()
+        iva_buttons_layout = QHBoxLayout()
+        iva_layout.addLayout(iva_fields_layout)
+        iva_layout.addLayout(iva_buttons_layout)
+        
+        iva_label = QLabel('Designação:')
+        self.iva_line_edit = QLineEdit()
+        iva_valor_label = QLabel('Taxa (%):')
+        self.iva_valor_line_edit = QLineEdit()
+        iva_create_button = QPushButton('Adicionar')
+        iva_close_button = QPushButton('Fechar')
+        
+        iva_label.setFixedWidth(80)
+        iva_valor_label.setFixedWidth(80)
+        iva_create_button.setFixedSize(140, 40)
+        iva_close_button.setFixedSize(140, 40)
+        
+        iva_fields_layout.addWidget(iva_label, 0, 0)
+        iva_fields_layout.addWidget(self.iva_line_edit, 0, 1)
+        iva_fields_layout.addWidget(iva_valor_label, 1, 0)
+        iva_fields_layout.addWidget( self.iva_valor_line_edit, 1, 1)
+        iva_buttons_layout.addWidget(iva_create_button)
+        iva_buttons_layout.addWidget(iva_close_button)
+        
+        # iva_create_button.clicked.connect(self.create_category)
+        iva_close_button.clicked.connect(self.close)
 
 class MessageWindow(QDialog):
     def __init__(self, titulo: str, messages: list):
@@ -271,6 +280,8 @@ class MissingValueWindow(QDialog):
     def __init__(self, title: str, message: str, button_title: str, add_value: QDialog):
         super(MissingValueWindow, self).__init__()
         
+        self.setWindowModality(Qt.WindowModality.ApplicationModal)
+        
         self.title = title
         self.message = message
         self.button_title = button_title
@@ -296,18 +307,28 @@ class MissingValueWindow(QDialog):
         missing_value_layout.addWidget(missing_value_window_button, 1, 0, alignment = Qt.AlignmentFlag.AlignCenter)
         missing_value_layout.addWidget(missing_value_close_button,1, 1, alignment = Qt.AlignmentFlag.AlignCenter)
         
-        missing_value_window_button.clicked.connect(self.open_new_window_and_close)
-        missing_value_close_button.clicked.connect(lambda: self.close())
+        missing_value_window_button.clicked.connect(self.open_AddCategoryWindow)
+        missing_value_close_button.clicked.connect(self.close)
         
-    def open_new_window_and_close(self):
-        open_new_window(self.open_window)
-        return
-
+    def open_AddCategoryWindow(self):
+        self.close()
+        open_new_window(AddCategoryWindow())
+        
 def open_new_window(new_window: QDialog):
     open_qdialog = new_window
     open_qdialog.exec()
-            
-
+         
+def open_AddProductWindow():
+    category_list = get_categories_list(session)
+    if category_list:
+        add_product = AddProductWindow(category_list)
+        open_new_window(add_product)
+    else:
+        title = "Sem Categorias"
+        message = "É necessário Categorias para adicionar Produto.\nCriar Categoria?"
+        button_title = "Criar Categoria"
+        new_window = MissingValueWindow(title, message, button_title, AddCategoryWindow())
+        open_new_window(new_window)
      
         
         

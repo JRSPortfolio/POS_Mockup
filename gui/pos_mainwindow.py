@@ -4,13 +4,13 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGro
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 import sys
-from gui.pos_add_models import (AddUserWindow, AddCategoryWindow ,AddProductWindow, EditRemCatProdWindow,
-                                open_new_window)
+from gui.pos_add_models import (AddUserWindow, AddCategoryWindow , EditRemCatProdWindow, open_new_window, 
+                                open_AddProductWindow, SetIVAWindow)
 
 class POSMainWindow(QMainWindow):
     def __init__(self):
         super(POSMainWindow, self).__init__()
-        
+                
         self.set_window_placements()
         self.set_menubar()
         self.set_options_section()
@@ -84,8 +84,9 @@ class POSMainWindow(QMainWindow):
         
         add_user_action.triggered.connect(lambda: open_new_window(AddUserWindow()))
         add_category_action.triggered.connect(lambda: open_new_window(AddCategoryWindow()))
-        add_product_action.triggered.connect(lambda: open_new_window(AddProductWindow()))
+        add_product_action.triggered.connect(open_AddProductWindow)
         edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditRemCatProdWindow()))
+        set_iva_action.triggered.connect(lambda: open_new_window(SetIVAWindow()))
         
     def set_options_section(self):
         user_button = QPushButton('Utilizador')
@@ -103,8 +104,6 @@ class POSMainWindow(QMainWindow):
 
         self.payment_section_layout.addWidget(print_button)
         self.payment_section_layout.addWidget(payment_button)
-
-        
         
 
         

@@ -11,8 +11,11 @@ def create_db_category(db_session: Session, category_name: str, desc: str):
     db_session.refresh(db_category)
     
 def validate_category_name(db_session: Session, category_name: str):
-    name = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
+    if len(category_name) == 0 or category_name.isspace():
+        messages = [f"Nome de categoria não pode estar vazio"]
+        return messages
     
+    name = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
     if name:
         messages = [f"Já existe uma categoria {category_name}"]
         return messages
