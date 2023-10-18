@@ -15,8 +15,8 @@ class TipoIVA(Base):
     __tablename__ = 'tipo_iva'
     
     iva_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
-    iva_value = Column(Numeric, nullable = False)
-    iva_description = Column(String(255), nullable = False)
+    iva_value = Column(Numeric, nullable = False, unique = True)
+    iva_description = Column(String(255), nullable = False, unique = True)
     
     produto = relationship('Produto', back_populates = 'iva_tipo')
     
