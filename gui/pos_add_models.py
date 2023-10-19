@@ -2,7 +2,8 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLa
                             QPushButton, QTextEdit, QComboBox, QTableWidget, QWidget)
 from PyQt6.QtCore import Qt
 from database.pos_crud import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
-                               validate_iva_input, get_iva_types_list, get_iva_value_by_name)
+                               validate_iva_input, get_iva_types_list, get_iva_value_by_name, remove_iva_by_name,
+                               change_iva_by_name, validate_iva_name, validate_iva_value)
 from database.mysql_engine import session
 
 class POSDialog(QDialog):
@@ -219,7 +220,7 @@ class EditRemCatProdWindow(POSDialog):
 class SetIVAWindow(POSDialog):
 
     def set_widgets_placements(self):
-        self.setGeometry(200, 200, 400, 100)
+        self.setGeometry(200, 200, 500, 100)
         self.setWindowTitle('Adicionar Categoria')
         iva_layout = QVBoxLayout()
         self.setLayout(iva_layout)
@@ -239,8 +240,8 @@ class SetIVAWindow(POSDialog):
         
         iva_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
         iva_valor_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-        self.iva_line_edit.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.iva_valor_line_edit.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.iva_line_edit.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self.iva_valor_line_edit.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         iva_create_button.setFixedWidth(160)
         iva_close_button.setFixedSize(140, 40)
         iva_placeholder.setFixedWidth(80)
@@ -249,8 +250,9 @@ class SetIVAWindow(POSDialog):
         self.iva_fields_layout.addWidget(iva_valor_label, 0, 1)
         self.iva_fields_layout.addWidget(self.iva_line_edit, 1, 0)
         self.iva_fields_layout.addWidget( self.iva_valor_line_edit, 1, 1)
-        self.iva_fields_layout.addWidget(iva_create_button, 1, 2, 1, 2)
-        self.iva_fields_layout.addWidget(iva_placeholder, 1, 3)
+        self.iva_fields_layout.addWidget(iva_placeholder, 1, 2)
+        self.iva_fields_layout.addWidget(iva_create_button, 1, 3, 1, 2)
+        self.iva_fields_layout.addWidget(iva_placeholder, 1, 4)
         iva_buttons_layout.addWidget(iva_close_button)
         
         iva_create_button.clicked.connect(self.create_iva_type)
@@ -268,7 +270,7 @@ class SetIVAWindow(POSDialog):
         
         messages = validate_iva_input(session, name, value)
         
-        if messages == None:
+        if not messages:
             create_db_tipo_iva(session, name, value)
             message_title = 'Designação Criada'
             message_content = [f'Criada Designação de IVA {name} com Taxa de {value}%']
@@ -276,6 +278,7 @@ class SetIVAWindow(POSDialog):
             open_new_window(message_window)
             self.iva_line_edit.clear()
             self.iva_valor_line_edit.clear()
+            self.remove_iva_listing()
             self.set_iva_types_list()
         else:
             message_title = "Erro de Inserção"
@@ -290,33 +293,38 @@ class SetIVAWindow(POSDialog):
             return
         
         iva_list_label = QLabel('Designações Existentes:')
-        iva_list_label.setAlignment(Qt.AlignmentFlag.AlignBottom)
         self.iva_fields_layout.addWidget(iva_list_label, 2, 0)
         
-        row_number = 3
+        row = 3
         for entry in iva_list:
             value = get_iva_value_by_name(session, entry)
             name_label = QLabel(entry)
             value_label = QLabel(str(value))
             edit_button = QPushButton('Editar')
+            remove_button = QPushButton('Remover')
             
             name_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             value_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-            edit_button.setFixedSize(80, 25)
-            
-            self.iva_fields_layout.addWidget(name_label, row_number, 0)
-            self.iva_fields_layout.addWidget(value_label, row_number, 1)
-            self.iva_fields_layout.addWidget(edit_button, row_number, 2)
-            
-            edit_button.clicked.connect(lambda _, name_label = name_label, value_label = value_label, iva_edit = edit_button,
-                                        row = row_number: self.edit_iva_fields(name_label, value_label, iva_edit, row))
+            edit_button.setFixedWidth(80)
+            remove_button.setFixedWidth(80)
 
-            row_number += 1
+            self.iva_fields_layout.addWidget(name_label, row, 0)
+            self.iva_fields_layout.addWidget(value_label, row, 1)
+            self.iva_fields_layout.addWidget(edit_button, row, 2)
+            self.iva_fields_layout.addWidget(remove_button, row, 3)
+            
+            edit_button.clicked.connect(lambda _, name_label = name_label, value_label = value_label, edit_button = edit_button,
+                                        row = row: self.edit_iva_fields(name_label = name_label, value_label = value_label, 
+                                                                        edit_button = edit_button, row = row))
+            
+            remove_button.clicked.connect(lambda _, iva_name = name_label.text(): self.remove_iva_row(iva_name = iva_name))
+            
+            row += 1
 
-    def edit_iva_fields(self, name_label: QLabel, value_label: QLabel, iva_edit: QPushButton, row: int):
-        name_label.hide()
-        value_label.hide()
-        iva_edit.hide()
+    def edit_iva_fields(self, name_label: QLabel, value_label: QLabel, edit_button: QPushButton, row: int):
+        name_label.close()
+        value_label.close()
+        edit_button.close()
         
         name_edit = QLineEdit()
         value_edit = QLineEdit()
@@ -325,28 +333,90 @@ class SetIVAWindow(POSDialog):
         
         name_edit.setText(name_label.text())
         value_edit.setText(value_label.text())
-        modify_button.setFixedSize(80, 25)
-        cancel_button.setFixedSize(80, 25)
+        name_edit.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        value_edit.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        modify_button.setFixedWidth(80)
+        cancel_button.setFixedWidth(80)
         
         self.iva_fields_layout.addWidget(name_edit, row, 0)
         self.iva_fields_layout.addWidget(value_edit, row, 1)
         self.iva_fields_layout.addWidget(modify_button, row, 2)
-        self.iva_fields_layout.addWidget(cancel_button, row, 3)
+        self.iva_fields_layout.addWidget(cancel_button, row, 4)
         
-        cancel_button.clicked.connect(lambda: self.cancel_iva_edit(name_label, value_label, iva_edit, name_edit, value_edit, modify_button,
+        modify_button.clicked.connect(lambda: self.edit_iva_row(name_label.text(), name_edit.text(), value_label.text(),
+                                                                value_edit.text()))
+                
+        cancel_button.clicked.connect(lambda: self.cancel_iva_edit(name_label, value_label, edit_button, name_edit, value_edit, modify_button,
                                                                  cancel_button))
-            
+
     def cancel_iva_edit(self, name: QLabel, value: QLabel, iva_edit: QPushButton, name_edit: QLineEdit,
                       value_edit: QLineEdit, iva_edit_button: QPushButton, cancel_button: QPushButton):
-        name_edit.hide()
-        value_edit.hide()
-        iva_edit_button.hide()
-        cancel_button.hide()
-        
+        name_edit.close()
+        value_edit.close()
+        iva_edit_button.close()
+        cancel_button.close()
+
         name.show()
         value.show()
         iva_edit.show()
-              
+        
+    def remove_iva_listing(self):
+        grid_rows = self.iva_fields_layout.rowCount()
+        for row in range(2, grid_rows):
+            for col in range(5):
+                item = self.iva_fields_layout.itemAtPosition(row, col)
+                if item:
+                    widget = item.widget()
+                    self.iva_fields_layout.removeItem(item)
+                    widget.deleteLater()
+                    
+    def remove_iva_row(self, iva_name: str):
+        remove_iva_by_name(session, iva_name)
+        self.remove_iva_listing()
+        self.set_iva_types_list()
+        
+    def edit_iva_row(self, iva_name:str , new_name: str, value: str, new_value: str):
+        messages = self.validate_iva_row(iva_name, new_name, value, new_value)
+        if not messages:
+            new_value = int(new_value)
+            change_iva_by_name(session, iva_name, new_name, new_value)
+            self.remove_iva_listing()
+            self.remove_iva_listing()
+            self.set_iva_types_list()
+        else:
+            message_title = "Erro de Edição"
+            message_window = MessageWindow(message_title, messages)
+            open_new_window(message_window)
+            self.remove_iva_listing()
+            self.remove_iva_listing()
+            self.set_iva_types_list()
+            
+    def validate_iva_row(self, iva_name:str , new_name: str, value: str, new_value: str):
+        messages = []
+        if (iva_name == new_name) and (value != new_value):
+            try:
+                new_value = int(new_value)
+            except:
+                pass
+            value_message = validate_iva_value(session, new_value)
+            if value_message:
+                messages.extend(value_message)   
+        elif (value == new_value) and (iva_name != new_name):
+            name_message = validate_iva_name(session, new_name)
+            if name_message:
+                messages.extend(name_message)
+        elif (value != new_value) and (iva_name != new_name):
+            try:
+                new_value = int(new_value)
+            except:
+                pass
+            fields_message = validate_iva_input(session, new_name, new_value)
+            if fields_message:
+                messages.extend(fields_message)
+        else:
+            messages.append("Não foram realizadas alterações")
+        return messages
+                      
 class MessageWindow(QDialog):
     def __init__(self, titulo: str, messages: list):
         super(MessageWindow, self).__init__()

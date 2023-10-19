@@ -36,29 +36,36 @@ def create_db_tipo_iva(db_session: Session, iva_name: str, value: int):
     db_session.refresh(db_iva)
     
 def validate_iva_input(db_session: Session, iva_name: str, value: int):
-    name = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).first()
-    iva_value = db_session.query(TipoIVA).filter(TipoIVA.iva_value == value).first()
-    
     messages = []
+    val_iva_name_list = validate_iva_name(db_session, iva_name)
+    if val_iva_name_list:
+        messages.extend(val_iva_name_list)
+    val_iva_values_list = validate_iva_value(db_session, value)
+    if val_iva_values_list:
+        messages.extend(val_iva_values_list)
+    if messages:
+        return messages
     
+def validate_iva_name(db_session: Session, iva_name: str):
+    messages = []
+    name = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).first()
     if len(iva_name) == 0 or iva_name.isspace():
         messages.append("Campo Designação não pode estar vazio")
+    if name:
+        messages.append(f"Já existe uma designação {iva_name}")
+    return messages
+
+def validate_iva_value(db_session: Session, value: int):
+    messages = []
+    iva_value = db_session.query(TipoIVA).filter(TipoIVA.iva_value == value).first()
     if not isinstance(value, int):
         messages.append("O campo Taxa é um valo inteiro")
     elif value <0 or value >100:
         messages.append("Taxa têm de ser entre 0 e 100%")
-    if messages:
-        return messages
-    
-    if name:
-        messages.append(f"Já existe uma designação {iva_name}")
-    if iva_value:
+    elif iva_value:
         messages.append(f"Já existe uma Taxa de {value}%")
-    if messages:
-        return messages
-    else:
-        return None
-    
+    return messages
+        
 def get_iva_types_list(db_session: Session):
     iva_types = db_session.query(TipoIVA.iva_description).order_by(asc(TipoIVA.iva_value)).all()
     iva_list = [iva[0] for iva in iva_types]
@@ -67,4 +74,17 @@ def get_iva_types_list(db_session: Session):
 def get_iva_value_by_name(db_session: Session, iva_name: str):
     iva_value = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).value(TipoIVA.iva_value)
     return iva_value
+    
+def remove_iva_by_name(db_session: Session, iva_name: str):
+    db_row = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).first()
+    db_session.delete(db_row)
+    db_session.commit()
+    
+def change_iva_by_name(db_session: Session, iva_name: str, new_name: str, value: int):    
+    db_row = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).first()
+    if db_row.iva_description != new_name:
+        db_row.iva_description = new_name
+    if db_row.iva_value != value:
+        db_row.iva_value = value
+    db_session.commit()
     
