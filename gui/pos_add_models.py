@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLa
 from PyQt6.QtCore import Qt
 from database.pos_crud import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
                                validate_iva_input, get_iva_types_list, get_iva_value_by_name, remove_iva_by_name,
-                               change_iva_by_name, validate_iva_name, validate_iva_value)
+                               change_iva_by_name, validate_iva_name, validate_iva_value, get_tipo_iva_list)
 from database.mysql_engine import session
 
 class POSDialog(QDialog):
@@ -116,8 +116,9 @@ class AddCategoryWindow(POSDialog):
             self.add_category_name_line_edit.clear()
 
 class AddProductWindow(POSDialog):
-    def __init__(self, category_list: list):
+    def __init__(self, category_list: list, iva_list: list):
         self.category_list = category_list
+        self.iva_list = iva_list
         super(AddProductWindow, self).__init__()
         
     def set_widgets_placements(self):
@@ -158,6 +159,9 @@ class AddProductWindow(POSDialog):
         
         for category in self.category_list:
             self.add_product_category_combo_box.addItem(category)
+        
+        for iva_type in self.iva_list:
+            self.add_product_iva_combo_box.addItem(iva_type)
                         
         add_product_fields_layout.addWidget(add_product_name_label, 0, 0)
         add_product_fields_layout.addWidget(self.add_product_name_line_edit, 0, 1)
@@ -373,6 +377,7 @@ class SetIVAWindow(POSDialog):
     def remove_iva_row(self, iva_name: str):
         remove_iva_by_name(session, iva_name)
         self.remove_iva_listing()
+        self.remove_iva_listing()
         self.set_iva_types_list()
         
     def edit_iva_row(self, iva_name:str , new_name: str, value: str, new_value: str):
@@ -417,15 +422,12 @@ class SetIVAWindow(POSDialog):
             messages.append("Não foram realizadas alterações")
         return messages
                       
-class MessageWindow(QDialog):
+class MessageWindow(POSDialog):
     def __init__(self, titulo: str, messages: list):
-        super(MessageWindow, self).__init__()
-        
         self.titulo = titulo
-        self.messages = messages
-        
-        self.set_widgets_placements()
-    
+        self.messages = messages  
+        super(MessageWindow, self).__init__()
+
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 300, 200)
         self.setWindowTitle(self.titulo)
@@ -443,18 +445,16 @@ class MessageWindow(QDialog):
         
         message_close_button.clicked.connect(lambda: self.close())
         
-class MissingValueWindow(QDialog):
-    def __init__(self, title: str, message: str, button_title: str, add_value: QDialog):
-        super(MissingValueWindow, self).__init__()
-        
-        self.setWindowModality(Qt.WindowModality.ApplicationModal)
-        
+class MissingValueWindow(POSDialog):
+    def __init__(self, title: str, message: str, button_title: str, add_value_window: POSDialog, aditional_button_title = None,
+                 add_aditiona_window = None):
         self.title = title
         self.message = message
         self.button_title = button_title
-        self.open_window = add_value
-        
-        self.set_widgets_placements()
+        self.add_value_window = add_value_window
+        self.aditional_button_title = aditional_button_title
+        self.add_aditional_window = add_aditiona_window
+        super(MissingValueWindow, self).__init__()
     
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 300, 200)
@@ -471,32 +471,58 @@ class MissingValueWindow(QDialog):
         missing_value_close_button.setFixedSize(140, 40)
         
         missing_value_layout.addWidget(missing_value_message_label,0 ,0, 1, 2)
-        missing_value_layout.addWidget(missing_value_window_button, 1, 0, alignment = Qt.AlignmentFlag.AlignCenter)
-        missing_value_layout.addWidget(missing_value_close_button,1, 1, alignment = Qt.AlignmentFlag.AlignCenter)
         
-        missing_value_window_button.clicked.connect(self.open_AddCategoryWindow)
+        if self.add_aditional_window is not None:
+            aditional_window_button = QPushButton(self.aditional_button_title)
+            aditional_window_button.setFixedSize(140, 40)
+            missing_value_layout.addWidget(missing_value_window_button, 1, 0, alignment = Qt.AlignmentFlag.AlignCenter)
+            missing_value_layout.addWidget(aditional_window_button, 1, 1, alignment = Qt.AlignmentFlag.AlignCenter)
+            missing_value_layout.addWidget(missing_value_close_button, 2, 0, 1, 2, alignment = Qt.AlignmentFlag.AlignCenter)
+            aditional_window_button.clicked.connect(self.open_aditional_window)
+        else:   
+            missing_value_layout.addWidget(missing_value_window_button, 1, 0, alignment = Qt.AlignmentFlag.AlignCenter)
+            missing_value_layout.addWidget(missing_value_close_button,1, 1, alignment = Qt.AlignmentFlag.AlignCenter)
+        
+        missing_value_window_button.clicked.connect(self.open_window)
         missing_value_close_button.clicked.connect(self.close)
         
-    def open_AddCategoryWindow(self):
+    def open_window(self):
         self.close()
-        open_new_window(AddCategoryWindow())
+        open_new_window(self.add_value_window)
         
-def open_new_window(new_window: QDialog):
+    def open_aditional_window(self):
+        self.close()
+        open_new_window(self.add_aditional_window)
+        
+def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
     open_qdialog.exec()
          
 def open_AddProductWindow():
     category_list = get_categories_list(session)
-    if category_list:
-        add_product = AddProductWindow(category_list)
+    iva_list = get_tipo_iva_list(session)
+    if category_list and iva_list:
+        add_product = AddProductWindow(category_list, iva_list)
         open_new_window(add_product)
-    else:
+    elif iva_list and not category_list:
         title = "Sem Categorias"
         message = "É necessário Categorias para adicionar Produto.\nCriar Categoria?"
         button_title = "Criar Categoria"
         new_window = MissingValueWindow(title, message, button_title, AddCategoryWindow())
         open_new_window(new_window)
-     
+    elif category_list and not iva_list:
+        title = "Sem Taxas de IVA"
+        message = "É necessário Taxas de IVA para adicionar Produto.\nCriar Taxa de IVA?"
+        button_title = "Criar Taxa de IVA"
+        new_window = MissingValueWindow(title, message, button_title, SetIVAWindow())
+        open_new_window(new_window)
+    else:
+        title = "Campos em Falta"
+        message = "É necessário Categorias e Taxas de IVA para adicionar Produto.\n\nCriar Categoria/Taxa de IVA?"
+        button_title = "Criar Categoria"
+        second_button_title = "Criar Taxa de IVA"
+        new_window = MissingValueWindow(title, message, button_title, AddCategoryWindow(), second_button_title, SetIVAWindow())
+        open_new_window(new_window)
         
         
         

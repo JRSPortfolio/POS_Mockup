@@ -28,6 +28,11 @@ def get_categories_list(db_session: Session):
     categories = [category[0] for category in category_names]
     return categories
 
+def get_tipo_iva_list(db_session: Session):
+    iva_names = db_session.query(TipoIVA.iva_description).all()
+    iva_list = [iva[0] for iva in iva_names]
+    return iva_list
+
 def create_db_tipo_iva(db_session: Session, iva_name: str, value: int):
     db_iva = TipoIVA(iva_value = value, iva_description = iva_name)
     
