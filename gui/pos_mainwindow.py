@@ -4,8 +4,8 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGro
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 import sys
-from gui.pos_add_models import (AddUserWindow, AddCategoryWindow , EditRemCatProdWindow, open_new_window, 
-                                open_AddProductWindow, SetIVAWindow)
+from gui.pos_add_models import (AddUserWindow, SetEditCategoryWindow , EditProdutcsWindow, open_new_window, 
+                                open_AddProductWindow, SetEditIVAWindow)
 
 class POSMainWindow(QMainWindow):
     def __init__(self):
@@ -72,10 +72,10 @@ class POSMainWindow(QMainWindow):
         user_menu.addAction(add_user_action)
         user_menu.addAction(user_options_action)
         
-        add_category_action = QAction('Adiconar Categoria', self)
+        category_action = QAction('Adiconar/Editar Categorias', self)
         add_product_action = QAction('Adiconar Produto', self)
-        edit_cat_prod_action = QAction('Editar/Remover Categoria/Produto', self)
-        cat_prod_menu.addAction(add_category_action)
+        edit_cat_prod_action = QAction('Editar/Remover Produtos', self)
+        cat_prod_menu.addAction(category_action)
         cat_prod_menu.addAction(add_product_action)
         cat_prod_menu.addAction(edit_cat_prod_action)
                 
@@ -83,10 +83,10 @@ class POSMainWindow(QMainWindow):
         options_menu.addAction(set_iva_action)
         
         add_user_action.triggered.connect(lambda: open_new_window(AddUserWindow()))
-        add_category_action.triggered.connect(lambda: open_new_window(AddCategoryWindow()))
+        category_action.triggered.connect(lambda: open_new_window(SetEditCategoryWindow()))
         add_product_action.triggered.connect(open_AddProductWindow)
-        edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditRemCatProdWindow()))
-        set_iva_action.triggered.connect(lambda: open_new_window(SetIVAWindow()))
+        edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditProdutcsWindow()))
+        set_iva_action.triggered.connect(lambda: open_new_window(SetEditIVAWindow()))
         
     def set_options_section(self):
         user_button = QPushButton('Utilizador')

@@ -9,17 +9,11 @@ from gui.pos_mainwindow import POSMainWindow
 from PyQt6.QtWidgets import QApplication
 import sys
 
-
-
-
 def main():
     app = QApplication(sys.argv)  
     window = POSMainWindow()
     window.show()
     sys.exit(app.exec())
-
-
-
 
 if __name__ == '__main__':
     main()    

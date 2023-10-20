@@ -1,5 +1,5 @@
-from database.mysql_engine import Base, engine, session
-from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes,
+from database.mysql_engine import engine, session
+from database.pos_models import (Base, Categoria, TipoIVA, Produto, Utilizador, Transacoes,
                                  ProdutosVendidos)
 
 

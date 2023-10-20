@@ -12,6 +12,7 @@ def create_db_category(db_session: Session, category_name: str, desc: str):
     db_session.refresh(db_category)
     
 def validate_category_name(db_session: Session, category_name: str):
+    messages = []
     if len(category_name) == 0 or category_name.isspace():
         messages = [f"Nome de categoria não pode estar vazio"]
         return messages
@@ -20,13 +21,28 @@ def validate_category_name(db_session: Session, category_name: str):
     if name:
         messages = [f"Já existe uma categoria {category_name}"]
         return messages
-    else:
-        return None
     
 def get_categories_list(db_session: Session):
     category_names = db_session.query(Categoria.cat_name).all()
     categories = [category[0] for category in category_names]
     return categories
+
+def remove_category_by_name(db_session: Session, category_name: str):
+    db_row = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
+    db_session.delete(db_row)
+    db_session.commit()
+    
+def change_category_by_name(db_session: Session, category_name: str, new_name: str, value: int):    
+    db_row = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
+    if db_row.cat_name != new_name:
+        db_row.cat_name = new_name
+    if db_row.description != value:
+        db_row.description = value
+    db_session.commit()
+    
+def get_category_description_by_name(db_session: Session, name: str):
+    description = db_session.query(Categoria).filter(Categoria.cat_name == name).value(Categoria.description)
+    return description
 
 def get_tipo_iva_list(db_session: Session):
     iva_names = db_session.query(TipoIVA.iva_description).all()
