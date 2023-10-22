@@ -4,13 +4,14 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGro
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 import sys
-from gui.pos_add_models import (AddUserWindow, SetEditCategoryWindow , EditProdutcsWindow, open_new_window, 
+from gui.pos_add_models import (AddUserWindow, SetEditCategoryWindow , EditRemoveProdutcsWindow,
                                 open_AddProductWindow, SetEditIVAWindow)
+from gui.pos_custom_widgets import(open_new_window, OptionsSectionButton, PaymentSectionButton, FONT_TYPE)
 
 class POSMainWindow(QMainWindow):
     def __init__(self):
         super(POSMainWindow, self).__init__()
-                
+        self.setFont(FONT_TYPE)
         self.set_window_placements()
         self.set_menubar()
         self.set_options_section()
@@ -62,6 +63,7 @@ class POSMainWindow(QMainWindow):
         
     def set_menubar(self):
         menubar = self.menuBar()
+        menubar.setFont(FONT_TYPE)
         
         user_menu = menubar.addMenu('Utilizador')
         cat_prod_menu = menubar.addMenu('Cateorias/Produtos')
@@ -85,22 +87,16 @@ class POSMainWindow(QMainWindow):
         add_user_action.triggered.connect(lambda: open_new_window(AddUserWindow()))
         category_action.triggered.connect(lambda: open_new_window(SetEditCategoryWindow()))
         add_product_action.triggered.connect(open_AddProductWindow)
-        edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditProdutcsWindow()))
+        edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditRemoveProdutcsWindow()))
         set_iva_action.triggered.connect(lambda: open_new_window(SetEditIVAWindow()))
         
     def set_options_section(self):
-        user_button = QPushButton('Utilizador')
-        
-        user_button.setFixedSize(70, 70)
-        
+        user_button = OptionsSectionButton('Utilizador')        
         self.options_section_layout.addWidget(user_button)
         
     def set_payment_section(self):
-        print_button = QPushButton('Imprimir Recibo')
-        payment_button = QPushButton('Pagamento')
-        
-        print_button.setFixedSize(140, 70)
-        payment_button.setFixedSize(140, 70)
+        print_button = PaymentSectionButton('Imprimir Recibo')
+        payment_button = PaymentSectionButton('Pagamento')
 
         self.payment_section_layout.addWidget(print_button)
         self.payment_section_layout.addWidget(payment_button)

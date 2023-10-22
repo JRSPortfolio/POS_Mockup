@@ -4,6 +4,11 @@ from sqlalchemy import asc
 from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes,
                                  ProdutosVendidos)
 
+###
+###
+### Categorias
+###
+###
 def create_db_category(db_session: Session, category_name: str, desc: str):
     db_category = Categoria(cat_name = category_name, description = desc)
     
@@ -44,6 +49,11 @@ def get_category_description_by_name(db_session: Session, name: str):
     description = db_session.query(Categoria).filter(Categoria.cat_name == name).value(Categoria.description)
     return description
 
+###
+###
+### IVA
+###
+###
 def get_tipo_iva_list(db_session: Session):
     iva_names = db_session.query(TipoIVA.iva_description).all()
     iva_list = [iva[0] for iva in iva_names]
@@ -109,3 +119,45 @@ def change_iva_by_name(db_session: Session, iva_name: str, new_name: str, value:
         db_row.iva_value = value
     db_session.commit()
     
+###
+###
+### Produto
+###
+###
+def validate_product_inputs(db_session: Session,):
+    ...
+    
+def validate_product_name(db_session: Session,):
+    ...
+    
+def validate_product_price(db_session: Session,):
+    ...
+    
+def get_product_iva_type(db_session: Session,):
+    ...
+    
+def get_product_category(db_session: Session,):
+    ...
+    
+def create_db_product(db_session: Session,):
+    ...
+    
+###
+###
+### Utilizador
+###
+###
+
+
+###
+###
+### Transacoes
+###
+###
+
+
+###
+###
+### ProdutosVendidos
+###
+###
