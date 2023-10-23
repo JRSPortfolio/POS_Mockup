@@ -1,10 +1,11 @@
 from PyQt6.QtWidgets import (QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QCheckBox, QTableWidget, QSpinBox)
 from PyQt6.QtCore import Qt
-from database.pos_crud import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
+from database.pos_crud_and_validations import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
                                validate_iva_input, get_iva_types_list, get_iva_value_by_name, remove_iva_by_name,
                                change_iva_by_name, validate_iva_name, validate_iva_value, get_tipo_iva_list,
                                remove_category_by_name, change_category_by_name, get_category_description_by_name,
-                               validate_product_inputs, get_product_iva_type, get_product_category, create_db_product)
+                               validate_product_inputs, get_product_iva_type, get_product_category, create_db_product,
+                               dec)
 from database.mysql_engine import session
 
 from gui.pos_custom_widgets import (POSDialog, SetEditOptionsWindow, MessageWindow, MissingValueWindow, open_new_window,
@@ -53,76 +54,135 @@ class AddUserWindow(POSDialog):
         
         add_user_close_button.clicked.connect(lambda: self.close())
 
-class AddProductWindow(POSDialog):
-    def __init__(self, category_list: list, iva_list: list):
+class ProductWindow(POSDialog):
+    def __init__(self, category_list: list, iva_list: list, product_name = None, product_price = None,
+                 product_iva_cb = None, product_order = None, product_iva_type = None, product_category = None,
+                 product_description = None):
+        self.product_name = product_name
+        self.product_price = product_price
+        self.product_iva_cb = product_iva_cb
+        self.product_order = product_order
+        self.product_iva_type = product_iva_type
+        self.product_category = product_category
+        self.product_description = product_description
+        self.edit_check = False
+        
         self.category_list = category_list
         self.iva_list = iva_list
-        super(AddProductWindow, self).__init__()
+        super(ProductWindow, self).__init__()
         
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 500, 200)
         self.setWindowTitle('Adicionar Produto')
                 
-        add_product_layout = QVBoxLayout()
-        self.setLayout(add_product_layout)
+        product_layout = QVBoxLayout()
+        self.setLayout(product_layout)
 
-        add_product_fields_layout = QGridLayout()
-        add_product_buttons_layout = QHBoxLayout()
-        add_product_layout.addLayout(add_product_fields_layout)
-        add_product_layout.addLayout(add_product_buttons_layout)
+        product_fields_layout = QGridLayout()
+        product_buttons_layout = QHBoxLayout()
+        product_layout.addLayout(product_fields_layout)
+        product_layout.addLayout(product_buttons_layout)
         
-        add_product_name_label = QLabel("Nome:")
-        self.add_product_name_line_edit = RoundedLeftLineEdit()
-        add_product_price_label = QLabel("Preço:")
-        self.add_product_price_line_edit = RoundedLeftLineEdit()
-        self.add_product_set_iva_check_box = QCheckBox("Preço c/ IVA")
-        add_product_order_label = QLabel('Ordem:')
-        self.add_product_order_spin_box = QSpinBox()
-        add_product_iva_label = QLabel("Cateogira de IVA:")
-        self.add_product_iva_combo_box = RoundedComboBox()
-        add_product_category_label = QLabel("Categoria:")
-        self.add_product_category_combo_box = RoundedComboBox()
-        add_product_description_label = QLabel("Descrição")
-        self.add_product_description_text_edit = RoundedLeftLineEdit()
-        add_product_create_button = HighOptionsButton('Adicionar Produto')
-        self.add_product_close_button = HighOptionsButton('Fechar')
+        product_name_label = QLabel("Nome:")
+        self.product_name_line_edit = RoundedLeftLineEdit()
+        product_price_label = QLabel("Preço:")
+        self.product_price_line_edit = RoundedLeftLineEdit()
+        self.product_set_iva_check_box = QCheckBox("Preço c/ IVA")
+        product_order_label = QLabel('Ordem:')
+        self.product_order_spin_box = QSpinBox()
+        product_iva_label = QLabel("Cateogira de IVA:")
+        self.product_iva_combo_box = RoundedComboBox()
+        product_category_label = QLabel("Categoria:")
+        self.product_category_combo_box = RoundedComboBox()
+        product_description_label = QLabel("Descrição")
+        self.product_description_line_edit = RoundedLeftLineEdit()
+        self.product_create_button = HighOptionsButton('Adicionar Produto')
+        self.product_close_button = HighOptionsButton('Fechar')
         
-        add_product_name_label.setFixedWidth(120)
-        add_product_price_label.setFixedWidth(120)
-        add_product_order_label.setFixedWidth(120)
-        add_product_iva_label.setFixedWidth(120)
-        add_product_category_label.setFixedWidth(120)
-        add_product_description_label.setFixedWidth(120)
-        add_product_description_label.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.add_product_order_spin_box.setFixedWidth(60)
-        self.add_product_order_spin_box.setMinimum(1)
-        self.add_product_order_spin_box.setMaximum(1000)
-        self.add_product_order_spin_box.setValue(10)
+        product_name_label.setFixedWidth(120)
+        product_price_label.setFixedWidth(120)
+        product_order_label.setFixedWidth(120)
+        product_iva_label.setFixedWidth(120)
+        product_category_label.setFixedWidth(120)
+        product_description_label.setFixedWidth(120)
+        product_description_label.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.product_set_iva_check_box.setChecked(True)
+        self.product_order_spin_box.setFixedWidth(60)
+        self.product_order_spin_box.setMinimum(1)
+        self.product_order_spin_box.setMaximum(1000)
+        self.product_order_spin_box.setValue(10)
         
         for category in self.category_list:
-            self.add_product_category_combo_box.addItem(category)
+            self.product_category_combo_box.addItem(category)
         
         for iva_type in self.iva_list:
-            self.add_product_iva_combo_box.addItem(iva_type)
+            iva_value = get_iva_value_by_name(session, iva_type)
+            self.product_iva_combo_box.addItem(f"{iva_type} ({iva_value}%)")
                         
-        add_product_fields_layout.addWidget(add_product_name_label, 0, 0)
-        add_product_fields_layout.addWidget(self.add_product_name_line_edit, 0, 1, 1, 3)
-        add_product_fields_layout.addWidget(add_product_price_label, 1, 0)
-        add_product_fields_layout.addWidget(self.add_product_price_line_edit, 1, 1, 1, 3)
-        add_product_fields_layout.addWidget(self.add_product_set_iva_check_box, 2, 0)
-        add_product_fields_layout.addWidget(add_product_order_label, 2, 1, 1, 3, Qt.AlignmentFlag.AlignRight)
-        add_product_fields_layout.addWidget(self.add_product_order_spin_box, 2, 2, 1, 2, Qt.AlignmentFlag.AlignRight)
-        add_product_fields_layout.addWidget(add_product_iva_label, 3, 0)
-        add_product_fields_layout.addWidget(self.add_product_iva_combo_box, 3, 1, 1, 3)
-        add_product_fields_layout.addWidget(add_product_category_label, 4, 0)
-        add_product_fields_layout.addWidget(self.add_product_category_combo_box, 4, 1, 1, 3)
-        add_product_fields_layout.addWidget(add_product_description_label, 5, 0)
-        add_product_fields_layout.addWidget(self.add_product_description_text_edit, 5, 1, 1, 3)
-        add_product_buttons_layout.addWidget(add_product_create_button)
-        add_product_buttons_layout.addWidget(self.add_product_close_button)
+        product_fields_layout.addWidget(product_name_label, 0, 0)
+        product_fields_layout.addWidget(self.product_name_line_edit, 0, 1, 1, 3)
+        product_fields_layout.addWidget(product_price_label, 1, 0)
+        product_fields_layout.addWidget(self.product_price_line_edit, 1, 1, 1, 3)
+        product_fields_layout.addWidget(self.product_set_iva_check_box, 2, 0)
+        product_fields_layout.addWidget(product_order_label, 2, 1, 1, 3, Qt.AlignmentFlag.AlignRight)
+        product_fields_layout.addWidget(self.product_order_spin_box, 2, 2, 1, 2, Qt.AlignmentFlag.AlignRight)
+        product_fields_layout.addWidget(product_iva_label, 3, 0)
+        product_fields_layout.addWidget(self.product_iva_combo_box, 3, 1, 1, 3)
+        product_fields_layout.addWidget(product_category_label, 4, 0)
+        product_fields_layout.addWidget(self.product_category_combo_box, 4, 1, 1, 3)
+        product_fields_layout.addWidget(product_description_label, 5, 0)
+        product_fields_layout.addWidget(self.product_description_line_edit, 5, 1, 1, 3)
+        product_buttons_layout.addWidget(self.product_create_button)
+        product_buttons_layout.addWidget(self.product_close_button)
         
-        self.add_product_close_button.clicked.connect(self.close)   
+        self.product_create_button.clicked.connect(self.create_product)
+        self.product_close_button.clicked.connect(self.close)   
         
+        self.check_if_edit()
+        
+    def check_if_edit(self):
+        if self.product_name is None:
+            pass
+        else:
+            self.product_name_line_edit.setText(self.product_name)
+            self.product_price_line_edit.setText(self.product_price)
+            self.product_set_iva_check_box.setChecked(self.product_iva_cb)
+            self.product_order_spin_box.setValue(self.product_order)
+            self.product_iva_combo_box
+            self.product_category_combo_box
+            self.product_description_line_edit.setText(self.product_description)
+            self.product_create_button.setText('Editar Produto')
+            self.edit_check = True
+            
+    def create_product(self):
+        name = self.product_name_line_edit.text()
+        price = self.product_price_line_edit.text()
+        iva_checkbox = self.product_set_iva_check_box.isChecked()
+        order_num = self.product_order_spin_box.value()
+        iva_type = self.product_iva_combo_box.currentText()
+        category = self.product_category_combo_box.currentText()
+        description = self.product_description_line_edit.text()
+        
+        iva_type = iva_type.split(' ')[0]
+        iva_value = get_iva_value_by_name(session, iva_type)
+        try:
+            price = dec(price)
+        except:
+            pass
+        
+        messages = validate_product_inputs(session, name, category, price)
+        if not messages:
+            create_db_product(session, name, price, category, iva_value, order_num, description,
+                              iva_checkbox)
+            message_title = 'Produto Criado'
+            message_content = [f'Criado produto {name} em {category}']
+            message_window = MessageWindow(message_title, message_content)
+            open_new_window(message_window)
+        else:
+            message_title = "Erro de Inserção"
+            message_window = MessageWindow(message_title, messages)
+            open_new_window(message_window)
+
 class EditRemoveProdutcsWindow(POSDialog):
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 500, 200)
@@ -270,7 +330,7 @@ def open_AddProductWindow():
     category_list = get_categories_list(session)
     iva_list = get_tipo_iva_list(session)
     if category_list and iva_list:
-        add_product = AddProductWindow(category_list, iva_list)
+        add_product = ProductWindow(category_list, iva_list) 
         open_new_window(add_product)
     elif iva_list and not category_list:
         title = "Sem Categorias"

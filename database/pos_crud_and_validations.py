@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import asc
+from sqlalchemy import asc, func
 
 from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes,
                                  ProdutosVendidos)
-import os
+from decimal import Decimal as dec
 
 ###
 ###
@@ -50,6 +50,9 @@ def get_category_description_by_name(db_session: Session, name: str):
     description = db_session.query(Categoria).filter(Categoria.cat_name == name).value(Categoria.description)
     return description
 
+def get_category_id_by_name(db_session: Session, name: str):
+    cat_id = db_session.query(Categoria).filter(Categoria.cat_name == name).value(Categoria.cat_id)
+    return cat_id
 ###
 ###
 ### IVA
@@ -102,6 +105,10 @@ def get_iva_types_list(db_session: Session):
     iva_types = db_session.query(TipoIVA.iva_description).order_by(asc(TipoIVA.iva_value)).all()
     iva_list = [iva[0] for iva in iva_types]
     return iva_list
+
+def get_iva_id(db_session: Session, value: int):
+    iva_id = db_session.query(TipoIVA).filter(TipoIVA.iva_value == value).value(TipoIVA.iva_id)
+    return iva_id
     
 def get_iva_value_by_name(db_session: Session, iva_name: str):
     iva_value = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).value(TipoIVA.iva_value)
@@ -125,23 +132,79 @@ def change_iva_by_name(db_session: Session, iva_name: str, new_name: str, value:
 ### Produto
 ###
 ###
-def validate_product_inputs(db_session: Session,):
+def validate_product_inputs(db_session, product_name: str, category: str, price: dec):
+    messages = []
+    val_product_name = validate_product_name(db_session, product_name, category)
+    val_product_price = validate_product_price(price)
+    if val_product_name:
+        messages.extend(val_product_name)
+    if val_product_price:
+        messages.extend(val_product_price)
+    return messages
+    
+def validate_product_name(db_session: Session, product_name: str, category: str):
+    messages = []
+    category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
+    name = db_session.query(Produto).filter(Produto.name == product_name, Produto.cat_id == category_id).first()
+    if len(product_name) == 0 or product_name.isspace():
+        messages.append("Campo Nome não pode estar vazio")
+    if name:
+        messages.append(f"Já existe uma designação {product_name} em {category}")
+    return messages
+    
+def validate_product_price(price: dec):
+    messages = []
+    if not isinstance(price, dec):
+        messages.append("O campo Preço é um valor númerico")
+    elif price < 0:
+        messages.append("Preço necessita de ser maior que 0")
+    return messages
+
+def get_product_order(db_session: Session, product: str, category: str):
+    order = db_session.query(Produto).filter(Produto.cat_name == category, Produto.name == product).value(Produto.ordem)
+    order_value = order[0]
+    order_num = int(order_value[len(category):])
+    return order_num
+
+def get_last_product_order(db_session: Session, category: str):
+    category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
+    order = db_session.query(Produto).filter(Produto.cat_id == category_id, func.max(Produto.ordem)).first()
+    order_value = order[0]
+    order_num = int(order_value[len(category):])
+    return order_num
+    
+def get_product_iva_type(db_session: Session, product: str, category: str):
+    iva = db_session.query(Produto).filter(Produto.cat_name == category, Produto.name == product).value(Produto.iva_id)
+    iva_id = iva[0]
+    iva_name_row = db_session.query(TipoIVA).filter(TipoIVA.iva_id == iva_id).first()
+    iva_name = iva_name_row[0]
+    return iva_name
+    
+def get_product_category(db_session: Session, ):
     ...
     
-def validate_product_name(db_session: Session,):
-    ...
+def create_db_product(db_session: Session, name: str, price: dec, cat_name: str, iva_value: int, ordem: int, description: str, iva_checkbox: bool):
+    cat_id = get_category_id_by_name(db_session, cat_name)
+    iva_price = get_iva_price(price, iva_checkbox, iva_value)
+    iva_id = get_iva_id(db_session, iva_value)
+    product_order = cat_name + str(ordem)
+    if iva_checkbox:
+        db_product = Produto(name = name, price = price, price_withouth_iva = iva_price, cat_id = cat_id, iva_id = iva_id,
+                             ordem = product_order, description = description)
+    else:
+        db_product = Produto(name = name, price = iva_price, price_withouth_iva = price, cat_id = cat_id, iva_id = iva_id,
+                             ordem = product_order, description = description)
     
-def validate_product_price(db_session: Session,):
-    ...
+    db_session.add(db_product)
+    db_session.commit()
+    db_session.refresh(db_product)
     
-def get_product_iva_type(db_session: Session,):
-    ...
-    
-def get_product_category(db_session: Session,):
-    ...
-    
-def create_db_product(db_session: Session,):
-    ...
+def get_iva_price(price: dec, iva_checkbox: bool, iva_value: int):
+    if iva_checkbox:
+        iva_price = price / (1 + (iva_value / 100))
+    else:
+        iva_price = price + (price * (iva_value / 100))
+    return iva_price
     
 ###
 ###

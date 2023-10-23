@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLa
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from database.mysql_engine import session
-from database.pos_crud import get_stylesheet
+from database.pos_crud_and_validations import get_stylesheet
 
 FONT_TYPE = QFont("Segoe UI", 10, weight = -1)
 FONT_TYPE_BOLD = QFont("Segoe UI", 10)
