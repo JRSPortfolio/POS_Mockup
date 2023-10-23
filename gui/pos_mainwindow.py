@@ -7,16 +7,18 @@ import sys
 from gui.pos_add_models import (AddUserWindow, SetEditCategoryWindow , EditRemoveProdutcsWindow,
                                 open_AddProductWindow, SetEditIVAWindow)
 from gui.pos_custom_widgets import(open_new_window, OptionsSectionButton, PaymentSectionButton, FONT_TYPE)
+from gui.pos_custom_widgets import STYLE
 
 class POSMainWindow(QMainWindow):
     def __init__(self):
         super(POSMainWindow, self).__init__()
         self.setFont(FONT_TYPE)
+        self.setStyleSheet(STYLE)
         self.set_window_placements()
         self.set_menubar()
         self.set_options_section()
         self.set_payment_section()
-    
+        
     def set_window_placements(self):
         self.setGeometry(100, 100, 1000, 600)
         self.setWindowTitle("POS") 

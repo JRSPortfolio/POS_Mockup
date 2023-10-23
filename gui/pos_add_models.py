@@ -1,5 +1,4 @@
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QCheckBox, 
-                             QTextEdit, QComboBox, QTableWidget, QSpinBox)
+from PyQt6.QtWidgets import (QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QCheckBox, QTableWidget, QSpinBox)
 from PyQt6.QtCore import Qt
 from database.pos_crud import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
                                validate_iva_input, get_iva_types_list, get_iva_value_by_name, remove_iva_by_name,
@@ -9,7 +8,7 @@ from database.pos_crud import (create_db_category, validate_category_name, get_c
 from database.mysql_engine import session
 
 from gui.pos_custom_widgets import (POSDialog, SetEditOptionsWindow, MessageWindow, MissingValueWindow, open_new_window,
-                                    RoundedButton, HighOptionsButton)
+                                    RoundedButton, HighOptionsButton, RoundedLeftLineEdit, RoundedComboBox)
 
 class AddUserWindow(POSDialog):
     def set_widgets_placements(self):
@@ -24,14 +23,14 @@ class AddUserWindow(POSDialog):
         add_user_layout.addLayout(add_user_buttons_layout)
         
         add_user_name_label = QLabel('Nome:')
-        self.add_user_name_line_edit = QLineEdit()
+        self.add_user_name_line_edit = RoundedLeftLineEdit()
         add_user_username_label = QLabel('Username:')
-        self.add_user_username_line_edit = QLineEdit()
+        self.add_user_username_line_edit = RoundedLeftLineEdit()
         self.add_user_admin_check_box = QCheckBox('Privilégios de Administração')
         add_user_password_label = QLabel('Password')
-        self.add_user_password_line_edit = QLineEdit()
+        self.add_user_password_line_edit = RoundedLeftLineEdit()
         add_user_confirm_password_label = QLabel('Confirmar Password')
-        self.add_user_confirm_password_line_edit = QLineEdit()
+        self.add_user_confirm_password_line_edit = RoundedLeftLineEdit()
         add_user_create_button = HighOptionsButton('Criar Utilizador')
         add_user_close_button = HighOptionsButton('Fechar')
         
@@ -73,18 +72,18 @@ class AddProductWindow(POSDialog):
         add_product_layout.addLayout(add_product_buttons_layout)
         
         add_product_name_label = QLabel("Nome:")
-        self.add_product_name_line_edit = QLineEdit()
+        self.add_product_name_line_edit = RoundedLeftLineEdit()
         add_product_price_label = QLabel("Preço:")
-        self.add_product_price_line_edit = QLineEdit()
+        self.add_product_price_line_edit = RoundedLeftLineEdit()
         self.add_product_set_iva_check_box = QCheckBox("Preço c/ IVA")
         add_product_order_label = QLabel('Ordem:')
         self.add_product_order_spin_box = QSpinBox()
         add_product_iva_label = QLabel("Cateogira de IVA:")
-        self.add_product_iva_combo_box = QComboBox()
+        self.add_product_iva_combo_box = RoundedComboBox()
         add_product_category_label = QLabel("Categoria:")
-        self.add_product_category_combo_box = QComboBox()
+        self.add_product_category_combo_box = RoundedComboBox()
         add_product_description_label = QLabel("Descrição")
-        self.add_product_description_text_edit = QTextEdit()
+        self.add_product_description_text_edit = RoundedLeftLineEdit()
         add_product_create_button = HighOptionsButton('Adicionar Produto')
         self.add_product_close_button = HighOptionsButton('Fechar')
         
@@ -99,7 +98,6 @@ class AddProductWindow(POSDialog):
         self.add_product_order_spin_box.setMinimum(1)
         self.add_product_order_spin_box.setMaximum(1000)
         self.add_product_order_spin_box.setValue(10)
-        self.add_product_description_text_edit.setMinimumHeight(80)
         
         for category in self.category_list:
             self.add_product_category_combo_box.addItem(category)
@@ -139,7 +137,7 @@ class EditRemoveProdutcsWindow(POSDialog):
         edit_rem_cat_pro_layout.addLayout(edit_rem_cat_pro_button_layout)
         
         category_label = QLabel('Categoria:')
-        self.category_combo_box = QComboBox()
+        self.category_combo_box = RoundedComboBox()
         products_label = QLabel('Produtos:')
         produts_table = QTableWidget()
         product_edit_button = RoundedButton('Editar Produto')

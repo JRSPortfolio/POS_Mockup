@@ -1,37 +1,42 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QWidget)
+                             QWidget, QComboBox)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
 from database.mysql_engine import session
+from database.pos_crud import get_stylesheet
 
 FONT_TYPE = QFont("Segoe UI", 10, weight = -1)
 FONT_TYPE_BOLD = QFont("Segoe UI", 10)
 FONT_TYPE_BOLD.setWeight(QFont.Weight.Bold)
+STYLE = get_stylesheet()
 
 class POSDialog(QDialog):
     def __init__(self):
         super(POSDialog, self).__init__()
         self.setFont(FONT_TYPE)
+        self.setStyleSheet(STYLE)
         if self.set_widgets_placements():
             self.set_widgets_placements()
             
 class SetEditOptionsWindow(POSDialog):
-    # Required fileds in __init__:
-    # self.first_title_label_text -> str
-    # self.second_title_label_text -> str
-    # self.get_types_list -> get listing function
-    # self.list_label_text ->  str
-    # self.get_value_by_name -> retrieve value by name function
-    # self.change_by_name -> change row by name function
-    # self.remove_by_name -> remove by name function
-    #
-    # Usefull fields in super:
-    # self.setWindowTitle = 'Adicionar Taxa de IVA'
-    # self.setGeometry(200, 200, 500, 100)
-    #
-    #Required methods:
-    #def self.create_type(self):
-    #def self.validate_row(self, name:str , new_name: str, value: str, new_value: str):
+    ###
+    ### Required fileds in __init__:
+    ### self.first_title_label_text -> str
+    ### self.second_title_label_text -> str
+    ### self.get_types_list -> get listing function
+    ### self.list_label_text ->  str
+    ### self.get_value_by_name -> retrieve value by name function
+    ### self.change_by_name -> change row by name function
+    ### self.remove_by_name -> remove by name function
+    ###
+    ### Usefull fields in super:
+    ### self.setWindowTitle = 'Adicionar Taxa de IVA'
+    ### self.setGeometry(200, 200, 500, 100)
+    ###
+    ###Required methods:
+    ###def self.create_type(self):
+    ###def self.validate_row(self, name:str , new_name: str, value: str, new_value: str):
+    ###
     def set_widgets_placements(self):
         base_layout = QVBoxLayout()
         self.setLayout(base_layout)
@@ -42,17 +47,15 @@ class SetEditOptionsWindow(POSDialog):
         base_layout.addLayout(buttons_layout)
         
         first_title_label = QLabel(self.first_title_label_text)
-        self.first_line_edit = QLineEdit()
+        self.first_line_edit = RoundedCenterLineEdit()
         second_title_label = QLabel(self.second_title_label_text)
-        self.second_line_edit = QLineEdit()
+        self.second_line_edit = RoundedCenterLineEdit()
         create_button = RoundedButton('Adicionar')
         placeholder = QWidget()
         close_button = HighOptionsButton('Fechar')
         
         first_title_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
         second_title_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-        self.first_line_edit.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        self.second_line_edit.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         create_button.setFixedSize(160, 22)
         placeholder.setFixedWidth(80)
                 
@@ -107,15 +110,13 @@ class SetEditOptionsWindow(POSDialog):
         value_label.close()
         edit_button.close()
         
-        name_edit = QLineEdit()
-        value_edit = QLineEdit()
+        name_edit = RoundedCenterLineEdit()
+        value_edit = RoundedCenterLineEdit()
         modify_button = SmallOptionsButton('Alterar')
         cancel_button = SmallOptionsButton('Cancelar')
         
         name_edit.setText(name_label.text())
         value_edit.setText(value_label.text())
-        name_edit.setAlignment(Qt.AlignmentFlag.AlignHCenter)
-        value_edit.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         
         self.fields_layout.addWidget(name_edit, row, 0)
         self.fields_layout.addWidget(value_edit, row, 1)
@@ -246,26 +247,11 @@ class MissingValueWindow(POSDialog):
 class RoundedButton(QPushButton):
     def __init__(self, *args):
         super(RoundedButton, self).__init__(*args)
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: gainsboro;
-                color: black;
-                border: 1px solid darkgrey;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                border: 1px solid mediumslateblue;
-                background-color: lavender;
-            }
-            QPushButton:pressed {
-                border: 1px solid indigo;
-                background-color: lightsteelblue;
-            }
-        """)
         
 class SmallOptionsButton(RoundedButton):
     def __init__(self, *args):
         super(SmallOptionsButton, self).__init__(*args)
+        self.setFont(FONT_TYPE)
         self.setFixedSize(80, 22)
 
 class HighOptionsButton(RoundedButton):
@@ -285,6 +271,25 @@ class PaymentSectionButton(RoundedButton):
         super(PaymentSectionButton, self).__init__(*args)
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(140, 75)
+        
+class RoundedCenterLineEdit(QLineEdit):
+    def __init__(self, *args):
+        super(RoundedCenterLineEdit, self).__init__(*args)
+        self.setFont(FONT_TYPE)
+        self.setFixedHeight(22)
+        self.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        
+class RoundedLeftLineEdit(QLineEdit):
+    def __init__(self, *args):
+        super(RoundedLeftLineEdit, self).__init__(*args)
+        self.setFont(FONT_TYPE)
+        self.setFixedHeight(22)
+
+class RoundedComboBox(QComboBox):
+    def __init__(self, *args):
+        super(RoundedComboBox, self).__init__(*args)
+        self.setFont(FONT_TYPE)
+        self.setFixedHeight(22)
 
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window

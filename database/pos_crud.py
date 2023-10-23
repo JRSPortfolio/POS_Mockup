@@ -3,6 +3,7 @@ from sqlalchemy import asc
 
 from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes,
                                  ProdutosVendidos)
+import os
 
 ###
 ###
@@ -161,3 +162,8 @@ def create_db_product(db_session: Session,):
 ### ProdutosVendidos
 ###
 ###
+
+def get_stylesheet():
+    with open('assets//stylesheet.qss', 'r') as file:
+        style = file.read()
+    return style
