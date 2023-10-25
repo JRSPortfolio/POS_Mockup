@@ -160,34 +160,38 @@ def validate_product_price(price: dec):
         messages.append("Preço necessita de ser maior que 0")
     return messages
 
-def get_product_order(db_session: Session, product: str, category: str):
-    order = db_session.query(Produto).filter(Produto.cat_name == category, Produto.name == product).value(Produto.ordem)
-    order_value = order[0]
-    order_num = int(order_value[len(category):])
-    return order_num
+def get_product_order(db_session: Session, order: int, category: str):
+    order_name = category + str(order)
+    existing_order = db_session.query(Produto).filter(Produto.ordem == order_name).value(Produto.ordem)
+    if not existing_order:
+        order_num = None
+        return order_num
+    else:
+       return order
 
 def get_last_product_order(db_session: Session, category: str):
     category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
-    order = db_session.query(Produto).filter(Produto.cat_id == category_id, func.max(Produto.ordem)).first()
-    order_value = order[0]
-    order_num = int(order_value[len(category):])
-    return order_num
+    order = db_session.query(Produto).filter(Produto.cat_id == category_id).with_entities(func.max(Produto.ordem)).first()
+    order_string = order[0]
+    if order_string:
+        order_num = int(order_string[len(category):])
+        return order_num
+    else:
+        return 0
     
 def get_product_iva_type(db_session: Session, product: str, category: str):
-    iva = db_session.query(Produto).filter(Produto.cat_name == category, Produto.name == product).value(Produto.iva_id)
-    iva_id = iva[0]
-    iva_name_row = db_session.query(TipoIVA).filter(TipoIVA.iva_id == iva_id).first()
-    iva_name = iva_name_row[0]
+    iva_id = db_session.query(Produto).filter(Produto.cat_name == category, Produto.name == product).value(Produto.iva_id)
+    iva_name = db_session.query(TipoIVA).filter(TipoIVA.iva_id == iva_id).first()
     return iva_name
-    
-def get_product_category(db_session: Session, ):
-    ...
     
 def create_db_product(db_session: Session, name: str, price: dec, cat_name: str, iva_value: int, ordem: int, description: str, iva_checkbox: bool):
     cat_id = get_category_id_by_name(db_session, cat_name)
-    iva_price = get_iva_price(price, iva_checkbox, iva_value)
+    iva_price = set_iva_price(price, iva_checkbox, iva_value)
     iva_id = get_iva_id(db_session, iva_value)
     product_order = cat_name + str(ordem)
+    
+    price = price.quantize(dec('0.00'))
+    iva_price = iva_price.quantize(dec('0.00'))
     if iva_checkbox:
         db_product = Produto(name = name, price = price, price_withouth_iva = iva_price, cat_id = cat_id, iva_id = iva_id,
                              ordem = product_order, description = description)
@@ -199,13 +203,22 @@ def create_db_product(db_session: Session, name: str, price: dec, cat_name: str,
     db_session.commit()
     db_session.refresh(db_product)
     
-def get_iva_price(price: dec, iva_checkbox: bool, iva_value: int):
+def set_iva_price(price: dec, iva_checkbox: bool, iva_value: int):
     if iva_checkbox:
-        iva_price = price / (1 + (iva_value / 100))
+        iva_price = dec(price / (1 + dec((iva_value / 100))))
     else:
-        iva_price = price + (price * (iva_value / 100))
+        iva_price = dec(price + (price * dec((iva_value / 100))))
     return iva_price
+
+def get_product_name_by_category_and_order(db_session: Session, order: int, category: str):
+    named_order = category + str(order)
+    name = db_session.query(Produto).filter(Produto.ordem == named_order).value(Produto.name)
+    return name
     
+def switch_product_order(db_session: Session, name: str, existing_order: str, new_order: str):
+    db_row = db_session.query(Produto).filter(Produto.name == name, Produto.ordem == existing_order).first()
+    db_row.ordem = new_order
+    db_session.commit()
 ###
 ###
 ### Utilizador

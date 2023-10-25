@@ -199,13 +199,13 @@ class MessageWindow(POSDialog):
         
 class MissingValueWindow(POSDialog):
     def __init__(self, title: str, message: str, button_title: str, add_value_window: POSDialog, aditional_button_title = None,
-                 add_aditiona_window = None):
+                 add_aditional_window = None):
         self.title = title
         self.message = message
         self.button_title = button_title
         self.add_value_window = add_value_window
         self.aditional_button_title = aditional_button_title
-        self.add_aditional_window = add_aditiona_window
+        self.add_aditional_window = add_aditional_window
         super(MissingValueWindow, self).__init__()
     
     def set_widgets_placements(self):
@@ -215,16 +215,15 @@ class MissingValueWindow(POSDialog):
         self.setLayout(missing_value_layout)
         
         missing_value_message_label = QLabel(self.message)
-        missing_value_window_button = HighOptionsButton(self.button_title)
-        missing_value_close_button = HighOptionsButton('Fechar')
+        missing_value_window_button = HighLargeOptionsButton(self.button_title)
+        missing_value_close_button = HighLargeOptionsButton('Fechar')
         
         missing_value_message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         missing_value_layout.addWidget(missing_value_message_label,0 ,0, 1, 2)
         
         if self.add_aditional_window is not None:
-            aditional_window_button = RoundedButton(self.aditional_button_title)
-            aditional_window_button.setFixedSize(140, 40)
+            aditional_window_button = HighLargeOptionsButton(self.aditional_button_title)
             missing_value_layout.addWidget(missing_value_window_button, 1, 0, alignment = Qt.AlignmentFlag.AlignCenter)
             missing_value_layout.addWidget(aditional_window_button, 1, 1, alignment = Qt.AlignmentFlag.AlignCenter)
             missing_value_layout.addWidget(missing_value_close_button, 2, 0, 1, 2, alignment = Qt.AlignmentFlag.AlignCenter)
@@ -243,6 +242,31 @@ class MissingValueWindow(POSDialog):
     def open_aditional_window(self):
         self.close()
         open_new_window(self.add_aditional_window)
+        
+class EditProductOrderWindow(MissingValueWindow):
+    def __init__(self, product_name = None, price = None, category = None, iva_value = None,
+                 order_num = None, description = None, iva_checkbox = None, new_order_num = None,
+                 existing_product_name = None, *args, **kwargs):
+        self.product_name = product_name
+        self.price = price
+        self.category = category
+        self.iva_value = iva_value
+        self.order_num = order_num
+        self.description = description
+        self.iva_checkbox = iva_checkbox
+        self.new_order_num = new_order_num
+        self.existing_product_name = existing_product_name
+        super(EditProductOrderWindow, self).__init__(*args, **kwargs)
+        
+    def open_window(self):
+        self.close()
+        self.add_value_window(self.product_name, self.price, self.category, self.iva_value, self.new_order_num, 
+                              self.description, self.iva_checkbox)
+    
+    def open_aditional_window(self):
+        self.close()
+        self.add_aditional_window(self.product_name, self.price, self.category, self.iva_value, self.order_num,
+                                  self.description, self.iva_checkbox, self.new_order_num, self.existing_product_name)
 
 class RoundedButton(QPushButton):
     def __init__(self, *args):
@@ -259,6 +283,12 @@ class HighOptionsButton(RoundedButton):
         super(HighOptionsButton, self).__init__(*args)
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(140, 40)
+        
+class HighLargeOptionsButton(RoundedButton):
+    def __init__(self, *args):
+        super(HighLargeOptionsButton, self).__init__(*args)
+        self.setFont(FONT_TYPE_BOLD)
+        self.setFixedSize(170, 65)
         
 class OptionsSectionButton(RoundedButton):
     def __init__(self, *args):

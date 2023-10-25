@@ -15,7 +15,7 @@ class TipoIVA(Base):
     __tablename__ = 'tipo_iva'
     
     iva_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
-    iva_value = Column(Numeric, nullable = False, unique = True)
+    iva_value = Column(Integer, nullable = False, unique = True)
     iva_description = Column(String(255), nullable = False, unique = True)
     
     produto = relationship('Produto', back_populates = 'iva_tipo')
@@ -25,11 +25,11 @@ class Produto(Base):
     
     prod_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
     name = Column(String(255), nullable = False)
-    price = Column(Numeric, nullable = False)
-    price_withouth_iva = Column(Numeric, nullable = False)
+    price = Column(Numeric(10, 2), nullable = False)
+    price_withouth_iva = Column(Numeric(10, 2), nullable = False)
     cat_id = Column(Integer, ForeignKey("categorias.cat_id"), nullable = False)
     iva_id = Column(Integer, ForeignKey("tipo_iva.iva_id"), nullable = False)
-    ordem = Column(String(255), nullable = False)
+    ordem = Column(String(255), nullable = False, unique = True)
     description = Column(String(255), nullable = True)
     
     categoria = relationship('Categoria', back_populates = 'produto')

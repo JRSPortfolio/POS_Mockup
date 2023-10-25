@@ -1,8 +1,13 @@
 # from database.mysql_engine import engine
 # from database.pos_models import Base
+# from database.populate_db import populate_categorias, populate_tipo_iva, populate_produtos
 
 # Base.metadata.drop_all(engine)
 # Base.metadata.create_all(engine)
+
+# populate_categorias()
+# populate_tipo_iva()
+# populate_produtos()
 
 
 from gui.pos_mainwindow import POSMainWindow

@@ -4,12 +4,13 @@ from database.pos_crud_and_validations import (create_db_category, validate_cate
                                validate_iva_input, get_iva_types_list, get_iva_value_by_name, remove_iva_by_name,
                                change_iva_by_name, validate_iva_name, validate_iva_value, get_tipo_iva_list,
                                remove_category_by_name, change_category_by_name, get_category_description_by_name,
-                               validate_product_inputs, get_product_iva_type, get_product_category, create_db_product,
-                               dec)
+                               validate_product_inputs, get_product_iva_type, create_db_product, get_last_product_order,
+                               get_product_order, get_product_name_by_category_and_order, switch_product_order, dec
+                               )
 from database.mysql_engine import session
 
 from gui.pos_custom_widgets import (POSDialog, SetEditOptionsWindow, MessageWindow, MissingValueWindow, open_new_window,
-                                    RoundedButton, HighOptionsButton, RoundedLeftLineEdit, RoundedComboBox)
+                                    RoundedButton, HighOptionsButton, RoundedLeftLineEdit, RoundedComboBox, EditProductOrderWindow)
 
 class AddUserWindow(POSDialog):
     def set_widgets_placements(self):
@@ -108,9 +109,6 @@ class ProductWindow(POSDialog):
         product_description_label.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.product_set_iva_check_box.setChecked(True)
         self.product_order_spin_box.setFixedWidth(60)
-        self.product_order_spin_box.setMinimum(1)
-        self.product_order_spin_box.setMaximum(1000)
-        self.product_order_spin_box.setValue(10)
         
         for category in self.category_list:
             self.product_category_combo_box.addItem(category)
@@ -118,7 +116,7 @@ class ProductWindow(POSDialog):
         for iva_type in self.iva_list:
             iva_value = get_iva_value_by_name(session, iva_type)
             self.product_iva_combo_box.addItem(f"{iva_type} ({iva_value}%)")
-                        
+                      
         product_fields_layout.addWidget(product_name_label, 0, 0)
         product_fields_layout.addWidget(self.product_name_line_edit, 0, 1, 1, 3)
         product_fields_layout.addWidget(product_price_label, 1, 0)
@@ -135,11 +133,25 @@ class ProductWindow(POSDialog):
         product_buttons_layout.addWidget(self.product_create_button)
         product_buttons_layout.addWidget(self.product_close_button)
         
+        self.set_product_spinbox_values()
+        
         self.product_create_button.clicked.connect(self.create_product)
-        self.product_close_button.clicked.connect(self.close)   
-        
+        self.product_close_button.clicked.connect(self.close)
+        self.product_category_combo_box.currentIndexChanged.connect(self.set_product_spinbox_values)
+
         self.check_if_edit()
-        
+    
+    def get_product_spinbox_last_order(self):
+        category = self.product_category_combo_box.currentText()
+        order = get_last_product_order(session, category)
+        return order + 1
+
+    def set_product_spinbox_values(self):
+        order = self.get_product_spinbox_last_order()
+        self.product_order_spin_box.setMinimum(1)
+        self.product_order_spin_box.setMaximum(order)
+        self.product_order_spin_box.setValue(order)
+    
     def check_if_edit(self):
         if self.product_name is None:
             pass
@@ -148,40 +160,83 @@ class ProductWindow(POSDialog):
             self.product_price_line_edit.setText(self.product_price)
             self.product_set_iva_check_box.setChecked(self.product_iva_cb)
             self.product_order_spin_box.setValue(self.product_order)
-            self.product_iva_combo_box
-            self.product_category_combo_box
+            self.product_iva_combo_box.setCurrentText(self.product_iva_type)
+            self.product_category_combo_box.setCurrentText(self.product_category)
             self.product_description_line_edit.setText(self.product_description)
             self.product_create_button.setText('Editar Produto')
             self.edit_check = True
             
     def create_product(self):
-        name = self.product_name_line_edit.text()
-        price = self.product_price_line_edit.text()
+        name = self.product_name_line_edit.text().strip()
+        price = self.product_price_line_edit.text().strip()
         iva_checkbox = self.product_set_iva_check_box.isChecked()
         order_num = self.product_order_spin_box.value()
         iva_type = self.product_iva_combo_box.currentText()
         category = self.product_category_combo_box.currentText()
-        description = self.product_description_line_edit.text()
+        description = self.product_description_line_edit.text().strip()
         
-        iva_type = iva_type.split(' ')[0]
-        iva_value = get_iva_value_by_name(session, iva_type)
+        iva_value = int(iva_type.split(' ')[1][1:-2])
         try:
             price = dec(price)
         except:
             pass
         
         messages = validate_product_inputs(session, name, category, price)
-        if not messages:
-            create_db_product(session, name, price, category, iva_value, order_num, description,
+        existing_order_num = get_product_order(session, order_num, category)
+        
+        if not messages and not existing_order_num:
+            self.create_sequential_order_product(name, price, category, iva_value, order_num, description,
                               iva_checkbox)
-            message_title = 'Produto Criado'
-            message_content = [f'Criado produto {name} em {category}']
-            message_window = MessageWindow(message_title, message_content)
-            open_new_window(message_window)
+            self.clear_product_window()
+        elif not messages and existing_order_num:
+            new_order_num = (get_last_product_order(session, category) + 1)
+            existing_name = get_product_name_by_category_and_order(session, existing_order_num, category)
+            self.set_product_order_window(category, existing_order_num, existing_name, new_order_num, name, price, iva_value,
+                                          description, iva_checkbox)
+            self.clear_product_window()
         else:
             message_title = "Erro de Inserção"
             message_window = MessageWindow(message_title, messages)
             open_new_window(message_window)
+            self.clear_product_window()
+    
+    def set_product_order_window(self, category: str, existing_order: int, existing_name: str, new_order: int,
+                                 new_name: str, price: dec, iva_value: int, description: str, iva_checkbox: bool):
+        title = 'Ordem Existente'
+        message = (f'{existing_name} já ocupa a posição de ordenação {existing_order}.\nDeseja colocar {new_name} ' 
+                   f'nessa posição e passar {existing_name} para a posição {new_order}?')
+        button_title = f'Gravar {new_name}\nna posição\n{new_order}'
+        additional_button_title = f'Gravar {new_name}\nna posição\n{existing_order}'
+        
+        window = EditProductOrderWindow(title = title, message = message, button_title = button_title,
+                                        add_value_window = self.create_sequential_order_product,
+                                        aditional_button_title = additional_button_title,
+                                        add_aditional_window = self.create_switch_order_product, product_name = new_name,
+                                        price = price, category = category, iva_value = iva_value, order_num = existing_order, 
+                                        description = description, iva_checkbox = iva_checkbox, new_order_num = new_order,
+                                        existing_product_name = existing_name)
+        open_new_window(window)
+
+    def create_sequential_order_product(self, name: str, price: dec, category: str, iva_value: int, order_num: int,
+                          description: str, iva_checkbox: bool):
+        create_db_product(session, name, price, category, iva_value, order_num, description, iva_checkbox)
+        message_title = 'Produto Criado'
+        message_content = [f'Criado produto {name} em {category}']
+        message_window = MessageWindow(message_title, message_content)
+        open_new_window(message_window)
+        
+    def create_switch_order_product(self, name: str, price: dec, category: str, iva_value: int, order_num: int,
+                          description: str, iva_checkbox: bool, new_order_num: int, existing_name: str):
+        order_name = category + str(order_num)
+        new_order_name = category + str(new_order_num)
+        switch_product_order(session, existing_name, order_name, new_order_name)
+        self.create_sequential_order_product(name, price, category, iva_value, order_num, description, iva_checkbox)
+       
+    def clear_product_window(self):
+        self.product_name_line_edit.setText('')
+        self.product_price_line_edit.setText('')
+        self.product_description_line_edit.setText('')
+        self.set_product_spinbox_values()
 
 class EditRemoveProdutcsWindow(POSDialog):
     def set_widgets_placements(self):
@@ -208,6 +263,10 @@ class EditRemoveProdutcsWindow(POSDialog):
         product_edit_button.setFixedSize(140, 22)
         product_remove_button.setFixedSize(140, 22)
         
+        category_list = get_categories_list(session)
+        for category in category_list:
+            self.category_combo_box.addItem(category)
+        
         cat_prod_fields_layout.addWidget(category_label, 0, 0)
         cat_prod_fields_layout.addWidget(self.category_combo_box, 0 ,1)
         cat_prod_fields_layout.addWidget(products_label, 1, 0, 1, 2)
@@ -231,8 +290,8 @@ class SetEditCategoryWindow(SetEditOptionsWindow):
         self.setGeometry(200, 200, 700, 100)
     
     def create_type(self):
-        name = self.first_line_edit.text()
-        description = self.second_line_edit.text()
+        name = self.first_line_edit.text().strip()
+        description = self.second_line_edit.text().strip()
         
         messages = validate_category_name(session, name)
         if not messages:
@@ -273,8 +332,8 @@ class SetEditIVAWindow(SetEditOptionsWindow):
         self.setGeometry(200, 200, 500, 100)
         
     def create_type(self):
-        name = self.first_line_edit.text()
-        value = self.second_line_edit.text()
+        name = self.first_line_edit.text().strip()
+        value = self.second_line_edit.text().strip()
         try:
             value = int(value)
         except:
