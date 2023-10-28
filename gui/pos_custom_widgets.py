@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QWidget, QComboBox)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QFont, QIcon
 from database.mysql_engine import session
 from database.pos_crud_and_validations import get_stylesheet
 
@@ -243,7 +243,7 @@ class MissingValueWindow(POSDialog):
         self.close()
         open_new_window(self.add_aditional_window)
         
-class EditProductOrderWindow(MissingValueWindow):
+class NewProductOrderWindow(MissingValueWindow):
     def __init__(self, product_name = None, price = None, category = None, iva_value = None,
                  order_num = None, description = None, iva_checkbox = None, new_order_num = None,
                  existing_product_name = None, *args, **kwargs):
@@ -256,7 +256,7 @@ class EditProductOrderWindow(MissingValueWindow):
         self.iva_checkbox = iva_checkbox
         self.new_order_num = new_order_num
         self.existing_product_name = existing_product_name
-        super(EditProductOrderWindow, self).__init__(*args, **kwargs)
+        super(NewProductOrderWindow, self).__init__(*args, **kwargs)
         
     def open_window(self):
         self.close()
@@ -267,6 +267,27 @@ class EditProductOrderWindow(MissingValueWindow):
         self.close()
         self.add_aditional_window(self.product_name, self.price, self.category, self.iva_value, self.order_num,
                                   self.description, self.iva_checkbox, self.new_order_num, self.existing_product_name)
+        
+class EditProductOrderWindow(MissingValueWindow):
+    def __init__(self, existing_name = None, category = None, existing_order = None, 
+                 new_order = None, values = None,
+                 *args, **kwargs):
+        self.existing_name = existing_name
+        self.category = category
+        self.existing_order = existing_order
+        self.new_order = new_order
+        self.values = values 
+        super(EditProductOrderWindow, self).__init__(*args, **kwargs)
+        
+    def open_window(self):
+        self.close()
+        order_name = self.category + str(self.new_order)
+        self.add_value_window(self.values, self.category, order_name)
+    
+    def open_aditional_window(self):
+        self.close()
+        self.add_aditional_window(self.existing_name, self.category, self.existing_order,
+                                  self.new_order, self.values)
 
 class RoundedButton(QPushButton):
     def __init__(self, *args):
@@ -301,6 +322,22 @@ class PaymentSectionButton(RoundedButton):
         super(PaymentSectionButton, self).__init__(*args)
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(140, 75)
+        
+class TableSelectionUpButton(RoundedButton):
+    def __init__(self, *args):
+        super(TableSelectionUpButton, self).__init__(*args)
+        self.setFont(FONT_TYPE_BOLD)
+        self.setFixedSize(30, 50)
+        self.setIcon(QIcon("assets//move_up_arrow.png"))
+        self.setIconSize(QSize(30, 45))
+        
+class TableSelectionDownButton(TableSelectionUpButton):
+    def __init__(self, *args):
+        super(TableSelectionUpButton, self).__init__(*args)
+        self.setFont(FONT_TYPE_BOLD)
+        self.setFixedSize(30, 50)
+        self.setIcon(QIcon("assets//move_down_arrow.png"))
+        self.setIconSize(QSize(30, 45))
         
 class RoundedCenterLineEdit(QLineEdit):
     def __init__(self, *args):

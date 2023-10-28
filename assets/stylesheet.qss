@@ -19,33 +19,37 @@ RoundedLeftLineEdit {
     border-radius: 5px;
 }
 RoundedComboBox { 
-border-radius: 5px;
-background-color: gainsboro;
-border: 1px solid darkgrey;
+    border-radius: 5px;
+    background-color: gainsboro;
+    border: 1px solid darkgrey;
 }
 RoundedComboBox::drop-down {
-background-color: silver;
-border: 1px solid gray;
-border-top-right-radius: 5px;
-border-bottom-right-radius: 5px;
+    background-color: silver;
+    border: 1px solid gray;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
 }
 RoundedComboBox::down-arrow {
-image: url("assets//downarrow.png");
-border-top-right-radius: 5px;
-border-bottom-right-radius: 5px;
-width: 14px;
-height: 14px;
+    image: url("assets//downarrow.png");
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    width: 14px;
+    height: 14px;
 }
 RoundedComboBox QAbstractItemView {
-background-color: whitesmoke;
-border-radius: 5px;
-border: 1px solid dimgray;
+    background-color: whitesmoke;
+    border-radius: 5px;
+    border: 1px solid dimgray;
 }
 QComboBox QAbstractItemView::item {
-border-radius: 5px;
-background-color: whitesmoke;
+    border-radius: 5px;
+    background-color: whitesmoke;
 }
 QComboBox QAbstractItemView::item:selected {
-background-color: lavender;
-color: black;
+    background-color: lavender;
+    color: black;
+}
+QTableView::item:selected { 
+    background-color: lavender;
+    color: black;
 }

@@ -21,4 +21,10 @@ def main():
     sys.exit(app.exec())
 
 if __name__ == '__main__':
-    main()    
+    main()
+
+
+# from database.pos_crud_and_validations import get_product_by_name_and_category
+# from database.mysql_engine import session
+
+# get_product_by_name_and_category(session, 'Sumo Manga', 'Bebidas')
