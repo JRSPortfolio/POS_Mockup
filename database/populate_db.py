@@ -34,6 +34,8 @@ def populate_produtos():
                 cat_id = 2, iva_id = 2, ordem = 'Bebidas2', description = 'Descrição Dois'),
         Produto(name = 'Sumo Manga', price = dec(2.40), price_withouth_iva = dec(2.40),
                 cat_id = 2, iva_id = 1, ordem = 'Bebidas3', description = 'Descrição Três'),
+        Produto(name = 'Sumo Limão', price = dec(2.68), price_withouth_iva = dec(2.44),
+                cat_id = 2, iva_id = 2, ordem = 'Bebidas4', description = 'Descrição Três e Meio'),
         Produto(name = 'Rissol', price = dec(2.60), price_withouth_iva = dec(2.36),
                 cat_id = 1, iva_id = 2, ordem = 'Aperitivos1', description = 'Descrição Quatro'),
         Produto(name = 'Croquete', price = dec(3.10), price_withouth_iva = dec(2.58),
@@ -42,12 +44,17 @@ def populate_produtos():
                 cat_id = 1, iva_id = 1, ordem = 'Aperitivos3', description = 'Descrição Seis'),
         Produto(name = 'Bife Novilho', price = dec(11.95), price_withouth_iva = dec(9.96),
                 cat_id = 3, iva_id = 3, ordem = 'Pratos1', description = 'Descrição Sete'),
+        Produto(name = 'Bife Vazia', price = dec(12.95), price_withouth_iva = dec(11.77),
+                cat_id = 3, iva_id = 2, ordem = 'Pratos2', description = 'Descrição Sete e Meio'),
+        Produto(name = 'Bife Acém', price = dec(12.25), price_withouth_iva = dec(11.14),
+                cat_id = 3, iva_id = 2, ordem = 'Pratos3', description = 'Descrição Oito'),
         Produto(name = 'Bife Frango', price = dec(10.45), price_withouth_iva = dec(9.50),
-                cat_id = 3, iva_id = 2, ordem = 'Pratos2', description = 'Descrição Sete'),
+                cat_id = 3, iva_id = 2, ordem = 'Pratos4', description = 'Descrição Oito e Meia'),
         Produto(name = 'Bife Porco', price = dec(11.20), price_withouth_iva = dec(11.20),
-                cat_id = 3, iva_id = 1, ordem = 'Pratos3', description = 'Descrição Oito')
+                cat_id = 3, iva_id = 1, ordem = 'Pratos5', description = 'Descrição Nove')
     ])
     session.commit()
+    session.close()
     
 # def populate_utilizadores():
 #     session.add_all([

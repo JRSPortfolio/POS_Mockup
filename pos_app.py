@@ -24,7 +24,7 @@ if __name__ == '__main__':
     main()
 
 
-# from database.pos_crud_and_validations import get_product_by_name_and_category
+# from database.pos_crud_and_validations import reorder_products_order
 # from database.mysql_engine import session
 
-# get_product_by_name_and_category(session, 'Sumo Manga', 'Bebidas')
+# reorder_products_order(session, 'Bebidas', 2)

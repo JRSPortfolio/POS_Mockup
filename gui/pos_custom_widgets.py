@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QWidget, QComboBox)
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QFont, QIcon
+from PyQt6.QtGui import QFont, QIcon, QStandardItemModel
 from database.mysql_engine import session
-from database.pos_crud_and_validations import get_stylesheet
+from database.pos_crud_and_validations import get_stylesheet, get_last_product_order
 
 FONT_TYPE = QFont("Segoe UI", 10, weight = -1)
 FONT_TYPE_BOLD = QFont("Segoe UI", 10)
@@ -270,24 +270,38 @@ class NewProductOrderWindow(MissingValueWindow):
         
 class EditProductOrderWindow(MissingValueWindow):
     def __init__(self, existing_name = None, category = None, existing_order = None, 
-                 new_order = None, values = None,
-                 *args, **kwargs):
+                 new_order = None, values = None, previous_category = None,
+                 check = None, *args, **kwargs):
         self.existing_name = existing_name
         self.category = category
         self.existing_order = existing_order
         self.new_order = new_order
-        self.values = values 
+        self.values = values
+        self.previous_category = previous_category
+        self.check = check
         super(EditProductOrderWindow, self).__init__(*args, **kwargs)
         
     def open_window(self):
         self.close()
-        order_name = self.category + str(self.new_order)
-        self.add_value_window(self.values, self.category, order_name)
+
+        if self.check:
+            order_name = self.category + str(self.new_order)
+            self.values['ordem'] = order_name
+            
+        if not self.values['ordem']:
+            self.values['ordem'] = self.category + str(self.new_order)
+  
+        self.add_value_window(self.values, self.category)
     
     def open_aditional_window(self):
         self.close()
-        self.add_aditional_window(self.existing_name, self.category, self.existing_order,
-                                  self.new_order, self.values)
+        if self.previous_category:
+            self.add_aditional_window(self.existing_order, self.new_order, self.category,
+                                      self. existing_name, self.values, self.previous_category)
+        else:
+            self.add_aditional_window(self.existing_order, self.new_order, self.category,
+                                      self. existing_name, self.values)
+
 
 class RoundedButton(QPushButton):
     def __init__(self, *args):
@@ -357,6 +371,12 @@ class RoundedComboBox(QComboBox):
         super(RoundedComboBox, self).__init__(*args)
         self.setFont(FONT_TYPE)
         self.setFixedHeight(22)
+        
+class ReadOnlyItemModel(QStandardItemModel):
+    def flags(self, index):
+        flags = super().flags(index)
+        flags &= ~Qt.ItemFlag.ItemIsEditable
+        return flags
 
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
