@@ -1,9 +1,9 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QWidget, QComboBox, QTableView)
+                             QWidget, QComboBox, QCheckBox)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QFont, QIcon, QStandardItemModel
 from database.mysql_engine import session
-from database.pos_crud_and_validations import get_stylesheet, get_last_product_order
+from database.pos_crud_and_validations import get_stylesheet
 
 FONT_TYPE = QFont("Segoe UI", 10, weight = -1)
 FONT_TYPE_BOLD = QFont("Segoe UI", 10)
@@ -354,8 +354,8 @@ class TableSelectionDownButton(TableSelectionUpButton):
         self.setIconSize(QSize(30, 45))
         
 class RoundedCenterLineEdit(QLineEdit):
-    def __init__(self, *args):
-        super(RoundedCenterLineEdit, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(RoundedCenterLineEdit, self).__init__(*args, **kwargs)
         self.setFont(FONT_TYPE)
         self.setFixedHeight(22)
         self.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
@@ -385,3 +385,7 @@ class ReadOnlyItemModel(QStandardItemModel):
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
     open_qdialog.exec()
+
+class MarginCheckBox(QCheckBox):
+    def __init__(self, *args, **kwargs):
+        super(MarginCheckBox, self).__init__(*args, **kwargs)

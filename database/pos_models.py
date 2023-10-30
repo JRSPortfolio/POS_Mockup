@@ -1,5 +1,5 @@
 from database.mysql_engine import Base
-from sqlalchemy import (Column, Integer, String, Numeric, ForeignKey, Date, Time, Boolean)
+from sqlalchemy import (Column, Integer, String, Numeric, ForeignKey, Date, Time, Boolean, UniqueConstraint)
 from sqlalchemy.orm import relationship
 
 class Categoria(Base):
@@ -10,6 +10,7 @@ class Categoria(Base):
     description = Column(String(255), nullable = True)
     
     produto = relationship('Produto', back_populates = 'categoria')
+    utilizadores = relationship('CategoriasUtilizador', back_populates = 'categoria')
     
 class TipoIVA(Base):
     __tablename__ = 'tipo_iva'
@@ -44,7 +45,22 @@ class Utilizador(Base):
     username = Column(String(255), nullable = False, unique = True)
     admin = Column(Boolean, nullable = False)
     password = Column(String(255), nullable = True)
-
+    ativo = Column(Boolean, nullable = False)
+    
+    categorias = relationship('CategoriasUtilizador', back_populates='utilizador')
+    
+class CategoriasUtilizador(Base):
+    __tablename__ = 'categorias_utilizador'
+    
+    cat_user_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
+    user_id = Column(Integer, ForeignKey('utilizador.user_id'))
+    cat_id = Column(Integer, ForeignKey('categorias.cat_id'))
+    
+    __table_args__ = (UniqueConstraint('user_id', 'cat_id', name='uq_user_cat_pair'),)
+    
+    utilizador = relationship('Utilizador', back_populates='categorias')
+    categoria = relationship('Categoria', back_populates='utilizadores')
+    
 class Transacoes(Base):
     __tablename__ = 'transacoes'
     

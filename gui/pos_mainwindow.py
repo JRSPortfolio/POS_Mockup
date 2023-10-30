@@ -4,8 +4,9 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGro
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction
 import sys
-from gui.pos_add_models import (AddUserWindow, SetEditCategoryWindow , EditRemoveProdutcsWindow,
-                                open_AddProductWindow, SetEditIVAWindow)
+from gui.pos_add_models import (UserWindow, SetEditCategoryWindow, open_AddProductWindow,
+                                SetEditIVAWindow, open_editable_UserWindow)
+from gui.pos_edit_models import EditRemoveProdutcsWindow
 from gui.pos_custom_widgets import(open_new_window, OptionsSectionButton, PaymentSectionButton, FONT_TYPE)
 from gui.pos_custom_widgets import STYLE
 
@@ -86,7 +87,8 @@ class POSMainWindow(QMainWindow):
         set_iva_action = QAction('IVA', self)
         options_menu.addAction(set_iva_action)
         
-        add_user_action.triggered.connect(lambda: open_new_window(AddUserWindow()))
+        add_user_action.triggered.connect(lambda: open_new_window(UserWindow()))
+        user_options_action.triggered.connect(open_editable_UserWindow)
         category_action.triggered.connect(lambda: open_new_window(SetEditCategoryWindow()))
         add_product_action.triggered.connect(open_AddProductWindow)
         edit_cat_prod_action.triggered.connect(lambda: open_new_window(EditRemoveProdutcsWindow()))
@@ -102,6 +104,7 @@ class POSMainWindow(QMainWindow):
 
         self.payment_section_layout.addWidget(print_button)
         self.payment_section_layout.addWidget(payment_button)
+    
         
 
         

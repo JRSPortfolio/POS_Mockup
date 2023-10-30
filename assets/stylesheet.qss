@@ -65,3 +65,6 @@ QHeaderView::section {
     color: black;
     font: bold;
 }
+MarginCheckBox {
+    margin-left: 126px;
+}

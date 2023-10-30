@@ -4,6 +4,7 @@ from sqlalchemy import asc, func
 from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes,
                                  ProdutosVendidos)
 from decimal import Decimal as dec
+import bcrypt
 
 ###
 ###
@@ -21,12 +22,12 @@ def create_db_category(db_session: Session, category_name: str, desc: str):
 def validate_category_name(db_session: Session, category_name: str):
     messages = []
     if len(category_name) == 0 or category_name.isspace():
-        messages = [f"Nome de categoria não pode estar vazio"]
+        messages = [f"Nome de categoria não pode estar vazio!"]
         return messages
     
     name = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
     if name:
-        messages = [f"Já existe uma categoria {category_name}"]
+        messages = [f"Já existe uma categoria {category_name}!"]
         db_session.close()
         return messages
     db_session.close()
@@ -71,7 +72,7 @@ def get_amount_products_in_category(db_session: Session, category: str):
     for prod in products:
         iva_value = str(get_iva_value_by_id(db_session, prod.iva_id)) + '%'
         order = prod.ordem[len(category):]
-        product_items[prod.prod_id] = [prod.name ,str(prod.price), iva_value, order]
+        product_items[prod.prod_id] = [order, prod.name ,str(prod.price), iva_value]
         
     db_session.close()
     return product_items
@@ -114,9 +115,9 @@ def validate_iva_name(db_session: Session, iva_name: str):
     messages = []
     name = db_session.query(TipoIVA).filter(TipoIVA.iva_description == iva_name).first()
     if len(iva_name) == 0 or iva_name.isspace():
-        messages.append("Campo Designação não pode estar vazio")
+        messages.append("Campo Designação não pode estar vazio!")
     if name:
-        messages.append(f"Já existe uma designação {iva_name}")
+        messages.append(f"Já existe uma designação {iva_name}!")
     db_session.close()
     return messages
 
@@ -124,11 +125,11 @@ def validate_iva_value(db_session: Session, value: int):
     messages = []
     iva_value = db_session.query(TipoIVA).filter(TipoIVA.iva_value == value).first()
     if not isinstance(value, int):
-        messages.append("O campo Taxa é um valo inteiro")
+        messages.append("O campo Taxa é um valo inteiro!")
     elif value <0 or value >100:
-        messages.append("Taxa têm de ser entre 0 e 100%")
+        messages.append("Taxa têm de ser entre 0 e 100%!")
     elif iva_value:
-        messages.append(f"Já existe uma Taxa de {value}%")
+        messages.append(f"Já existe uma Taxa de {value}%!")
     db_session.close()
     return messages
         
@@ -198,9 +199,9 @@ def validate_product_add_name(db_session: Session, product_name: str, category: 
     category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
     name = db_session.query(Produto).filter(Produto.name == product_name, Produto.cat_id == category_id).first()
     if len(product_name) == 0 or product_name.isspace():
-        messages.append("Campo Nome não pode estar vazio")
+        messages.append("Campo Nome não pode estar vazio!")
     if name:
-        messages.append(f"Já existe uma designação {product_name} em {category}")
+        messages.append(f"Já existe uma designação {product_name} em {category}!")
     db_session.close()
     return messages
 
@@ -213,9 +214,9 @@ def validate_product_edit_name(product_name: str):
 def validate_product_price(price: dec):
     messages = []
     if not isinstance(price, dec):
-        messages.append("O campo Preço é um valor númerico")
+        messages.append("O campo Preço é um valor númerico!")
     elif price < 0:
-        messages.append("Preço necessita de ser maior que 0")
+        messages.append("Preço necessita de ser maior que 0!")
     return messages
 
 def get_product_order(db_session: Session, order: int, category: str):
@@ -371,17 +372,144 @@ def remove_product_by_order_name(db_session: Session, order_name: str):
     db_session.commit()
     db_session.close()
         
-def get_product_by_order_name(db_session: Session, order_name: str):
-    product =  db_session.query(Produto).filter_by(ordem = order_name).value(Produto.name)
-    return product
-        
 # ###
 ###
 ### Utilizador
 ###
 ###
 
+def validate_add_user_input(db_session: Session, name: str, username: str, password = None, confirm = None):
+    messages = []
+    
+    name_list = validate_user_name(name)
+    if name_list:
+        messages.extend(name_list)
+        
+    username_list = validate_add_user_username(db_session, username)
+    if username_list:
+        messages.extend(username_list)
+    
+    if password:
+        password_list = validate_user_password(password, confirm)
+        messages.extend(password_list)
+        
+    if messages:
+        return messages
+      
+def validate_user_name(name):
+    messages = []
+    if len(name) == 0 or name.isspace():
+        messages.append("Campo Nome não pode estar vazio!")
+    return messages
+    
+def validate_add_user_username(db_session: Session, username: str):
+    messages = []
+    
+    if len(username) == 0 or username.isspace():
+        messages.append("Campo Username não pode estar vazio!")
+        
+    user_row = db_session.query(Utilizador).filter_by(username = username).first()
+    if user_row:
+        messages.append(f"Já existe um Username! {username}")
+        
+    db_session.close()
+    return messages
 
+def validate_edit_user_username(username: str):
+    messages = []
+    
+    if len(username) == 0 or username.isspace():
+        messages.append("Campo Username não pode estar vazio!")
+    return messages
+
+def validate_edit_user_input(name: str, username: str, password: str, confirm: str):
+    messages = []
+    
+    name_list = validate_user_name(name)
+    if name_list:
+        messages.extend(name_list)
+        
+    username_list = validate_edit_user_username(username)
+    if username_list:
+        messages.extend(name_list) 
+        
+    password_list = validate_user_password(password, confirm)
+    if password_list:
+        messages.extend(password_list)
+        
+    return messages
+
+def validate_user_password(password: str, confirm: str):
+    messages = []
+    if password != confirm:
+        messages.append(f"Password não coincide!")
+    return messages
+
+def create_hash_password(password: str):
+    password = password.encode('utf-8')
+    hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())
+    return hashed_password
+
+def verify_hashed_password(hashed_password: str, password: str):
+    password = password.encode('utf-8')
+    hashed_password = hashed_password.encode('utf-8')
+    messages = []
+    if bcrypt.checkpw(password, hashed_password):
+        return messages
+    else:
+        messages.append('Password Incorreta!')
+        return messages
+    
+def create_db_user(db_session: Session, name: str, username: str, check_active: bool,
+                   check_admin: bool, password = None):
+    if check_admin:
+        db_user = Utilizador(name = name, username = username, admin = check_admin, password = password, ativo = check_active)
+    else:
+        db_user = Utilizador(name = name, username = username, admin = check_admin, ativo = check_active)
+        
+    db_session.add(db_user)
+    db_session.commit()
+    db_session.refresh(db_user)
+    db_session.close()
+    
+def edit_db_user(db_session: Session, user_id: int, name: str, username: str, check_active: bool,
+                   check_admin: bool, password = None, check_previous_admin = None):
+    db_user = db_session.query(Utilizador).filter_by(user_id = user_id).first()
+    if check_admin:
+        db_user.name = name
+        db_user.username = username
+        db_user.admin = check_admin
+        if password:
+            db_user.password = password
+        db_user.ativo = check_active
+    else:
+        if check_previous_admin:
+            db_user.password = ''
+        db_user.name = name
+        db_user.username = username
+        db_user.admin = check_admin
+        db_user.ativo = check_active
+    
+    db_session.merge(db_user)
+    db_session.commit()
+    db_session.close()
+    
+def get_users_dict(db_session: Session):
+    users = db_session.query(Utilizador).all()
+    user_dict = {}
+    for user in users:
+        user_dict[user.user_id] = [user.name, user.username]
+    
+    db_session.close()
+    return user_dict
+    
+def get_user_by_username(db_session: Session, username: str):
+    user = db_session.query(Utilizador).filter_by(username = username).first()
+    user_dict = {'user_id' : user.user_id, 'name' : user.name, 'username' : username, 'admin' : user.admin,
+                 'password' : user.password, 'ativo' : user.ativo}
+    db_session.close()
+    return user_dict
+    
 ###
 ###
 ### Transacoes
