@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QCheckBox, QTableView, QSpinBox, QHeaderView)
-from PyQt6.QtCore import Qt, QItemSelectionModel, QItemSelection
+from PyQt6.QtCore import Qt
 from database.pos_crud_and_validations import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
                                validate_iva_input, get_iva_value_by_name, remove_iva_by_name, change_iva_by_name, validate_iva_name,
                                validate_iva_value, get_tipo_iva_list, remove_category_by_name, change_category_by_name,
@@ -7,8 +7,8 @@ from database.pos_crud_and_validations import (create_db_category, validate_cate
                                get_product_order, get_product_name_by_category_and_order, switch_product_order,
                                get_amount_products_in_category, get_product_by_name_and_category,
                                get_category_id_by_name, get_iva_id, edit_product_values, get_product_id_by_name_and_category,
-                               validate_edit_product_inputs, reorder_products_order, 
-                               dec)
+                               validate_edit_product_inputs, reorder_products_order, remove_product_by_order_name,
+                               get_product_by_order_name, dec)
 from PyQt6.QtGui import QStandardItem
 from database.mysql_engine import session
 
@@ -33,31 +33,52 @@ class AddUserWindow(POSDialog):
         add_user_username_label = QLabel('Username:')
         self.add_user_username_line_edit = RoundedLeftLineEdit()
         self.add_user_admin_check_box = QCheckBox('Privilégios de Administração')
-        add_user_password_label = QLabel('Password')
+        self.add_user_password_label = QLabel('Password')
         self.add_user_password_line_edit = RoundedLeftLineEdit()
-        add_user_confirm_password_label = QLabel('Confirmar Password')
+        self.add_user_confirm_password_label = QLabel('Confirmar Password')
         self.add_user_confirm_password_line_edit = RoundedLeftLineEdit()
         add_user_create_button = HighOptionsButton('Criar Utilizador')
         add_user_close_button = HighOptionsButton('Fechar')
         
         add_user_name_label.setFixedWidth(120)
         add_user_username_label.setFixedWidth(120)
-        add_user_password_label.setFixedWidth(120)
-        add_user_confirm_password_label.setFixedWidth(120)
+        self.add_user_password_label.setFixedWidth(120)
+        self.add_user_confirm_password_label.setFixedWidth(120)
+        
+        self.add_user_admin_check_box.setChecked(False)
+        self.add_user_password_label.hide()
+        self.add_user_password_line_edit.hide()
+        self.add_user_confirm_password_label.hide()
+        self.add_user_confirm_password_line_edit.hide()
+        
+        
         
         add_user_fields_layout.addWidget(add_user_name_label, 0, 0)
         add_user_fields_layout.addWidget(self.add_user_name_line_edit, 0, 1)
         add_user_fields_layout.addWidget(add_user_username_label, 1, 0)
         add_user_fields_layout.addWidget(self.add_user_username_line_edit, 1, 1)
         add_user_fields_layout.addWidget(self.add_user_admin_check_box, 2, 0, 1, 2)
-        add_user_fields_layout.addWidget(add_user_password_label, 3, 0)
+        add_user_fields_layout.addWidget(self.add_user_password_label, 3, 0)
         add_user_fields_layout.addWidget(self.add_user_password_line_edit, 3, 1)
-        add_user_fields_layout.addWidget(add_user_confirm_password_label, 4, 0)
+        add_user_fields_layout.addWidget(self.add_user_confirm_password_label, 4, 0)
         add_user_fields_layout.addWidget(self.add_user_confirm_password_line_edit, 4, 1)
         add_user_buttons_layout.addWidget(add_user_create_button)
         add_user_buttons_layout.addWidget(add_user_close_button)
         
-        add_user_close_button.clicked.connect(lambda: self.close())
+        self.add_user_admin_check_box.stateChanged.connect(self.admin_checkbox_check)
+        add_user_close_button.clicked.connect(self.close)
+        
+    def admin_checkbox_check(self):
+        if self.add_user_admin_check_box.isChecked():
+            self.add_user_password_label.show()
+            self.add_user_password_line_edit.show()
+            self.add_user_confirm_password_label.show()
+            self.add_user_confirm_password_line_edit.show()
+        else:
+            self.add_user_password_label.hide()
+            self.add_user_password_line_edit.hide()
+            self.add_user_confirm_password_label.hide()
+            self.add_user_confirm_password_line_edit.hide()
 
 class ProductWindow(POSDialog):
     def __init__(self, category_list: list, iva_list: list):
@@ -406,6 +427,8 @@ class EditRemoveProdutcsWindow(POSDialog):
         self.order_edit_button.setFixedSize(140, 22)
         self.order_edit_button.setCheckable(True)
         
+        self.produts_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        
         category_list = get_categories_list(session)
         for category in category_list:
             self.category_combo_box.addItem(category)
@@ -422,15 +445,20 @@ class EditRemoveProdutcsWindow(POSDialog):
         products_table_layout.addWidget(self.order_edit_button, 3, 2, alignment = Qt.AlignmentFlag.AlignCenter)
         edit_rem_cat_pro_button_layout.addWidget(edit_rem_close_button)
         
-        self.category_combo_box.currentIndexChanged.connect(self.set_table_model)
+        self.category_combo_box.currentIndexChanged.connect(self.table_category_change)
         self.move_product_up_button.clicked.connect(self.up_button_check)
         self.move_product_down_button.clicked.connect(self.down_button_check)
         product_edit_button.clicked.connect(self.edit_product_in_row)
-        # product_remove_button.clicked.connect()
+        product_remove_button.clicked.connect(self.remove_product_row)
+        self.order_edit_button.clicked.connect(self.unlock_ordering)
         edit_rem_close_button.clicked.connect(self.close)
         
+        self.table_header = self.produts_table.horizontalHeader()
+        self.table_header.setDisabled(True)
+        self.table_header.sectionClicked.connect(self.set_order_by_header)
+        
     def set_table_model(self):
-        self.table_model = ReadOnlyItemModel()
+        self.table_model = ReadOnlyItemModel()        
         self.category = self.category_combo_box.currentText().strip()
         
         headers = ['Produto', 'Preço', 'IVA', 'Ordem']
@@ -459,6 +487,11 @@ class EditRemoveProdutcsWindow(POSDialog):
             self.produts_table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
 
         self.produts_table.show()
+
+    def table_category_change(self):
+        self.set_table_model()
+        self.order_edit_button.setChecked(False)
+        self.table_header.setDisabled(True)
         
     def up_button_check(self):
         if self.order_edit_button.isChecked():
@@ -540,9 +573,6 @@ class EditRemoveProdutcsWindow(POSDialog):
                 index = self.table_model.index(order, 0)
                 switching_product = self.table_model.itemFromIndex(index).text()
                 new_order_name = self.category + str(order + 1)
-
-            # print(f'{product} {type(product)} - {order_name} {type(order_name)}\n')
-            # print(f'{switching_product} {type(switching_product)} - {new_order_name} {type(new_order_name)}\n')
             
             switch_product_order(session, switching_product, new_order_name, placeholder)
             switch_product_order(session, product, order_name, new_order_name)
@@ -601,6 +631,45 @@ class EditRemoveProdutcsWindow(POSDialog):
             open_new_window(edit_window)
             self.set_table_model()
             
+    def remove_product_row(self):
+        order = self.get_selected_order()
+        if order:
+            order_name = self.category + order
+            remove_product_by_order_name(session, order_name)
+            reorder_products_order(session, self.category, int(order))
+            self.set_table_model()
+    
+    def unlock_ordering(self):
+        if self.order_edit_button.isChecked():
+            self.table_header.setDisabled(False)
+            self.produts_table.setSortingEnabled(True)
+            self.produts_table.sortByColumn(3, Qt.SortOrder.AscendingOrder)
+        else:
+            self.table_header.setDisabled(True)
+            self.produts_table.setSortingEnabled(False)
+            
+    def set_order_by_header(self):
+        order_num = 1
+        placeholder = '_'
+        
+        for row in range(self.table_model.rowCount()):
+            name = self.table_model.item(row, 0).text()
+            order = self.table_model.item(row, 3).text()
+            order_name = self.category + order
+            switch_product_order(session, name, order_name, placeholder)
+            placeholder += '_'
+            
+        placeholder = '_'    
+            
+        for row in range(self.table_model.rowCount()):
+            name = self.table_model.item(row, 0).text()
+            order_name = self.category + str(order_num)
+            switch_product_order(session, name, placeholder, order_name)
+            placeholder += '_'
+            order_num += 1
+            
+        self.set_table_model()
+                  
 class SetEditCategoryWindow(SetEditOptionsWindow):
     def __init__(self):
         self.first_title_label_text = 'Designação'

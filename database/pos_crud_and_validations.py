@@ -228,17 +228,7 @@ def get_product_order(db_session: Session, order: int, category: str):
     else:
         db_session.close()
         return order
-   
-# def get_last_product_order(db_session: Session, category: str):
-#     category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
-#     order = db_session.query(Produto).filter(Produto.cat_id == category_id).with_entities(func.max(Produto.ordem)).first()
-#     order_string = order[0]
-#     if order_string:
-#         order_num = int(order_string[len(category):])
-#         return order_num
-#     else:
-#         return 0
-    
+  
 def get_last_product_order(db_session: Session, category: str):
     category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
     order = db_session.query(Produto).filter(Produto.cat_id == category_id).order_by(Produto.ordem.desc()).first()
@@ -251,8 +241,6 @@ def get_last_product_order(db_session: Session, category: str):
         db_session.close()
         return 0
 
-
-    
 def get_product_iva_type(db_session: Session, product: str, category: str):
     iva_id = db_session.query(Produto).filter(Produto.cat_name == category, Produto.name == product).value(Produto.iva_id)
     iva_name = db_session.query(TipoIVA).filter(TipoIVA.iva_id == iva_id).first()
@@ -295,6 +283,7 @@ def get_product_name_by_category_and_order(db_session: Session, order: int, cate
 def switch_product_order(db_session: Session, name: str, existing_order: str, new_order: str):
     db_row = db_session.query(Produto).filter(Produto.name == name, Produto.ordem == existing_order).first()
     db_row.ordem = new_order
+    db_session.merge(db_row)
     db_session.commit()
     db_session.close()
 
@@ -375,8 +364,16 @@ def reorder_products_order(db_session: Session, category: str, order: int):
         
     db_session.commit() 
     db_session.close()
+    
+def remove_product_by_order_name(db_session: Session, order_name: str):
+    product =  db_session.query(Produto).filter_by(ordem = order_name).first()
+    db_session.delete(product)
+    db_session.commit()
+    db_session.close()
         
-
+def get_product_by_order_name(db_session: Session, order_name: str):
+    product =  db_session.query(Produto).filter_by(ordem = order_name).value(Produto.name)
+    return product
         
 # ###
 ###

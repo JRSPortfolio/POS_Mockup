@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QWidget, QComboBox)
+                             QWidget, QComboBox, QTableView)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QFont, QIcon, QStandardItemModel
 from database.mysql_engine import session
@@ -373,6 +373,10 @@ class RoundedComboBox(QComboBox):
         self.setFixedHeight(22)
         
 class ReadOnlyItemModel(QStandardItemModel):
+    # def __init__(self, *args, **kwargs):
+    #     super(ReadOnlyItemModel, self).__init__(*args, **kwargs)
+    #     self.set_selection()
+        
     def flags(self, index):
         flags = super().flags(index)
         flags &= ~Qt.ItemFlag.ItemIsEditable
