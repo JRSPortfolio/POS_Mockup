@@ -450,7 +450,7 @@ def create_hash_password(password: str):
     hashed_password = bcrypt.hashpw(password, bcrypt.gensalt())
     return hashed_password
 
-def verify_hashed_password(hashed_password: str, password: str):
+def verify_hashed_password(password: str, hashed_password: str):
     password = password.encode('utf-8')
     hashed_password = hashed_password.encode('utf-8')
     messages = []
@@ -501,6 +501,7 @@ def get_users_dict(db_session: Session):
         user_dict[user.user_id] = [user.name, user.username]
     
     db_session.close()
+
     return user_dict
     
 def get_user_by_username(db_session: Session, username: str):
@@ -509,6 +510,46 @@ def get_user_by_username(db_session: Session, username: str):
                  'password' : user.password, 'ativo' : user.ativo}
     db_session.close()
     return user_dict
+
+def check_if_admin_by_id(db_session: Session, user_id: int):
+    admin_check = db_session.query(Utilizador).filter_by(user_id = user_id).value(Utilizador.admin)
+    db_session.close()
+    return admin_check
+
+def check_if_admin_by_username(db_session: Session, username: str):
+    admin_check = db_session.query(Utilizador).filter_by(username = username).value(Utilizador.admin)
+    db_session.close()
+    return admin_check
+
+def check_if_user_exists(db_session: Session, user_id: int):
+    user_check = db_session.query(Utilizador).filter_by(user_id = user_id).value(Utilizador.name)
+    db_session.close()
+    return user_check
+
+def remove_db_user(db_session: Session, user_id: int):
+    db_user = db_session.query(Utilizador).filter_by(user_id = user_id).first()
+    db_session.delete(db_user)
+    db_session.commit()
+    db_session.close()
+    
+def check_users_exist(db_session: Session):
+    users = db_session.query(Utilizador).all()
+    if users:
+        return True
+    else:
+        return False
+    
+def get_users_usernames(db_session: Session):
+    users = db_session.query(Utilizador).all()
+    usernames = []
+    for user in users:
+        usernames.append(user.username)
+    db_session.close()
+    return usernames
+
+def get_user_password_by_username(db_session: Session, username: str):
+    password = db_session.query(Utilizador).filter_by(username = username).value(Utilizador.password)
+    return password
     
 ###
 ###

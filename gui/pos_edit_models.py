@@ -10,7 +10,7 @@ from database.mysql_engine import session
 
 from gui.pos_custom_widgets import (POSDialog, MessageWindow, open_new_window, RoundedButton, HighOptionsButton, 
                                     RoundedComboBox, EditProductOrderWindow, TableSelectionUpButton,
-                                    TableSelectionDownButton, ReadOnlyItemModel, RoundedLeftLineEdit)
+                                    TableSelectionDownButton, ReadOnlyItemModel, LargeThinButton)
 
 from gui.pos_add_models import ProductWindow
 
@@ -155,7 +155,7 @@ class EditProductWindow(ProductWindow):
 class EditRemoveProdutcsWindow(POSDialog):
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 700, 400)
-        self.setWindowTitle('Editar/Remover Categoria/Produto')
+        self.setWindowTitle('Editar/Remover Produto')
         
         edit_rem_cat_pro_layout = QVBoxLayout()
         self.setLayout(edit_rem_cat_pro_layout)
@@ -172,14 +172,11 @@ class EditRemoveProdutcsWindow(POSDialog):
         self.produts_table = QTableView()
         self.move_product_up_button = TableSelectionUpButton()
         self.move_product_down_button = TableSelectionDownButton()
-        product_edit_button = RoundedButton('Editar Produto')
-        product_remove_button = RoundedButton('Remover Produto')
-        self.order_edit_button = RoundedButton('Re-Ordenar')
+        product_edit_button = LargeThinButton('Editar Produto')
+        product_remove_button = LargeThinButton('Remover Produto')
+        self.order_edit_button = LargeThinButton('Re-Ordenar')
         edit_rem_close_button = HighOptionsButton('Fechar')
         
-        product_edit_button.setFixedSize(140, 22)
-        product_remove_button.setFixedSize(140, 22)
-        self.order_edit_button.setFixedSize(140, 22)
         self.order_edit_button.setCheckable(True)
         
         self.produts_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)

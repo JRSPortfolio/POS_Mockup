@@ -302,6 +302,34 @@ class EditProductOrderWindow(MissingValueWindow):
             self.add_aditional_window(self.existing_order, self.new_order, self.category,
                                       self. existing_name, self.values)
 
+class EditAdminStatusWindow(MissingValueWindow):
+    def __init__(self, name: str, username: str, admin_check: bool, active_check:bool,
+                 user_id: int, session, *args, **kwargs):
+        self.name = name
+        self.username = username
+        self.admin_check = admin_check
+        self.active_check = active_check
+        self.user_id = user_id
+        self.session = session
+        
+        super(EditAdminStatusWindow, self).__init__(*args, **kwargs)
+        
+    def open_window(self):
+        self.close()
+        self.add_value_window(self.session, self.user_id, self.name, self.username,
+                              self.active_check, self.admin_check, check_previous_admin = True)
+        
+class RemoveUserWindow(MissingValueWindow):
+    def __init__(self, user_id: str, session, *args, **kwargs):
+        self.user_id = user_id
+        self.session = session
+        
+        super(RemoveUserWindow, self).__init__(*args, **kwargs)
+        
+    def open_window(self):
+        self.close()
+        self.add_value_window(self.session, self.user_id)
+
 
 class RoundedButton(QPushButton):
     def __init__(self, *args):
@@ -345,6 +373,12 @@ class TableSelectionUpButton(RoundedButton):
         self.setIcon(QIcon("assets//move_up_arrow.png"))
         self.setIconSize(QSize(30, 45))
         
+class LargeThinButton(RoundedButton):
+    def __init__(self, *args):
+        super(LargeThinButton, self).__init__(*args)
+        self.setFont(FONT_TYPE)
+        self.setFixedSize(150, 22)
+
 class TableSelectionDownButton(TableSelectionUpButton):
     def __init__(self, *args):
         super(TableSelectionUpButton, self).__init__(*args)
@@ -382,10 +416,12 @@ class ReadOnlyItemModel(QStandardItemModel):
         flags &= ~Qt.ItemFlag.ItemIsEditable
         return flags
 
+class MarginCheckBox(QCheckBox):
+    def __init__(self, *args, **kwargs):
+        super(MarginCheckBox, self).__init__(*args, **kwargs)
+        
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
     open_qdialog.exec()
 
-class MarginCheckBox(QCheckBox):
-    def __init__(self, *args, **kwargs):
-        super(MarginCheckBox, self).__init__(*args, **kwargs)
+    

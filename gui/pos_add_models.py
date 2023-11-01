@@ -6,29 +6,28 @@ from database.pos_crud_and_validations import (create_db_category, validate_cate
                                get_category_description_by_name, validate_add_product_inputs, create_db_product, get_last_product_order,
                                get_product_order, get_product_name_by_category_and_order, switch_product_order,
                                get_category_id_by_name, get_iva_id, validate_add_user_input, create_hash_password, create_db_user,
-                               get_users_dict, get_user_by_username, verify_hashed_password, validate_user_password, edit_db_user,
-                               validate_edit_user_input, dec)
+                               get_users_dict, get_user_by_username, edit_db_user, validate_edit_user_input, check_if_admin_by_id,
+                               remove_db_user, check_if_user_exists, check_users_exist, dec)
 from database.mysql_engine import session
 from gui.pos_custom_widgets import (POSDialog, SetEditOptionsWindow, MessageWindow, MissingValueWindow, open_new_window,
                                     HighOptionsButton, RoundedLeftLineEdit, RoundedComboBox, NewProductOrderWindow,
-                                    MarginCheckBox)
+                                    MarginCheckBox, EditAdminStatusWindow, LargeThinButton, RemoveUserWindow)
 
 class UserWindow(POSDialog):
     def __init__(self, title = 'Adicionar Utilizador', user_cb = 'Tornar Activo', create_button = 'Criar Utilizador',
-                 edit_dict = None, *args, **kwargs):
+                 edit = None, *args, **kwargs):
         self.title = title
         self.user_cb = user_cb
         self.create_button = create_button
-        self.edit_dict = edit_dict
-                
+        self.edit = edit
+                        
         super(UserWindow, self).__init__(*args, **kwargs)
         
     def position_widget_fields(self):
-        if self.edit_dict:
+        if self.edit:
             self.user_list_combo_box = RoundedComboBox()
-            self.user_new_password_label = QLabel('Nova Password')
-            self.user_new_password_line_edit = RoundedLeftLineEdit()
-
+            self.user_remove_user_button = LargeThinButton('Remover Utilizador')
+            
             self.user_fields_layout.addWidget(self.user_list_combo_box, 0, 1)
             self.user_fields_layout.addWidget(self.user_name_label, 1, 0)
             self.user_fields_layout.addWidget(self.user_name_line_edit, 1, 1)
@@ -38,24 +37,19 @@ class UserWindow(POSDialog):
             self.user_fields_layout.addWidget(self.user_admin_check_box, 4, 0, 1, 2)
             self.user_fields_layout.addWidget(self.user_password_label, 5, 0)
             self.user_fields_layout.addWidget(self.user_password_line_edit, 5, 1)
-            self.user_fields_layout.addWidget(self.user_new_password_label, 6, 0)
-            self.user_fields_layout.addWidget(self.user_new_password_line_edit, 6, 1)
-            self.user_fields_layout.addWidget(self.user_confirm_password_label, 7, 0)
-            self.user_fields_layout.addWidget(self.user_confirm_password_line_edit, 7, 1)
-            self.user_buttons_layout.addWidget(self.user_create_button)
-            self.user_buttons_layout.addWidget(self.user_close_button)
+            self.user_fields_layout.addWidget(self.user_confirm_password_label, 6, 0)
+            self.user_fields_layout.addWidget(self.user_confirm_password_line_edit, 6, 1)
+            self.user_buttons_layout.addWidget(self.user_create_button, 0, 0)
+            self.user_buttons_layout.addWidget(self.user_remove_user_button, 0, 1)
+            self.user_buttons_layout.addWidget(self.user_close_button, 1, 0, 1, 2, alignment = Qt.AlignmentFlag.AlignHCenter)
             
-            for key in self.edit_dict.keys():
-                label = f'{self.edit_dict[key][0]} - {self.edit_dict[key][1]}'
-                self.user_list_combo_box.addItem(label)
+            self.set_combo_box()
             
             self.user_list_combo_box.setCurrentIndex(-1)
-            
-            self.user_new_password_label.hide()
-            self.user_new_password_line_edit.hide()
-            
+                        
             self.user_list_combo_box.currentIndexChanged.connect(self.set_edit_user_values)
             self.user_create_button.clicked.connect(self.edit_user)
+            self.user_remove_user_button.clicked.connect(self.remove_user)
             
         else:    
             self.user_fields_layout.addWidget(self.user_name_label, 0, 0)
@@ -68,8 +62,8 @@ class UserWindow(POSDialog):
             self.user_fields_layout.addWidget(self.user_password_line_edit, 4, 1)
             self.user_fields_layout.addWidget(self.user_confirm_password_label, 5, 0)
             self.user_fields_layout.addWidget(self.user_confirm_password_line_edit, 5, 1)
-            self.user_buttons_layout.addWidget(self.user_create_button)
-            self.user_buttons_layout.addWidget(self.user_close_button)
+            self.user_buttons_layout.addWidget(self.user_create_button, 0, 0, 1, 2, alignment = Qt.AlignmentFlag.AlignHCenter)
+            self.user_buttons_layout.addWidget(self.user_close_button, 1, 0, 1, 2, alignment = Qt.AlignmentFlag.AlignHCenter)
             
             self.user_create_button.clicked.connect(self.create_user)
         
@@ -80,7 +74,7 @@ class UserWindow(POSDialog):
         self.setLayout(user_layout)
         
         self.user_fields_layout = QGridLayout()
-        self.user_buttons_layout = QHBoxLayout()
+        self.user_buttons_layout = QGridLayout()
         user_layout.addLayout(self.user_fields_layout)
         user_layout.addLayout(self.user_buttons_layout)
         
@@ -94,7 +88,7 @@ class UserWindow(POSDialog):
         self.user_password_line_edit = RoundedLeftLineEdit()
         self.user_confirm_password_label = QLabel('Confirmar Password')
         self.user_confirm_password_line_edit = RoundedLeftLineEdit()
-        self.user_create_button = HighOptionsButton(self.create_button)
+        self.user_create_button = LargeThinButton(self.create_button)
         self.user_close_button = HighOptionsButton('Fechar')
         
         self.user_name_label.setFixedWidth(120)
@@ -115,7 +109,16 @@ class UserWindow(POSDialog):
         
         self.user_admin_check_box.stateChanged.connect(self.admin_checkbox_check)
         self.user_close_button.clicked.connect(self.close)
-    
+        
+    def set_combo_box(self):
+        self.user_list_combo_box.clear()
+        combo_box_items = get_users_dict(session)
+        if not combo_box_items:
+            self.close()
+        for key in combo_box_items.keys():
+            label = f'{combo_box_items[key][0]} - {combo_box_items[key][1]}'
+            self.user_list_combo_box.addItem(label)
+                    
     def set_edit_user_values(self):
         if not self.user_list_combo_box.currentIndex() == -1:
             username = self.user_list_combo_box.currentText().split(' - ')[1]
@@ -125,12 +128,11 @@ class UserWindow(POSDialog):
             
             if self.current_user_dict['admin']:
                 self.user_admin_check_box.setChecked(True)
-                self.user_new_password_label.show()
-                self.user_new_password_line_edit.show()
+                self.user_password_label.show()
+                self.user_password_line_edit.show()
+                self.user_password_label.setText('Nova Password')
             else:
                 self.user_admin_check_box.setChecked(False)
-                self.user_new_password_label.hide()
-                self.user_new_password_line_edit.hide()
                 self.user_password_label.hide()
                 self.user_password_line_edit.hide()
                 
@@ -145,27 +147,11 @@ class UserWindow(POSDialog):
             self.user_password_line_edit.show()
             self.user_confirm_password_label.show()
             self.user_confirm_password_line_edit.show()
-            if self.edit_dict and self.current_user_dict['admin']:
-                self.user_new_password_label.show()
-                self.user_new_password_line_edit.show()
         else:
-            if self.edit_dict and self.current_user_dict['admin']:
-                self.user_confirm_password_label.hide()
-                self.user_confirm_password_line_edit.hide()
-                self.user_new_password_label.hide()
-                self.user_new_password_line_edit.hide()
-            elif self.edit_dict:
-                self.user_confirm_password_label.hide()
-                self.user_confirm_password_line_edit.hide()
-                self.user_new_password_label.hide()
-                self.user_new_password_line_edit.hide()
-                self.user_password_label.hide()
-                self.user_password_line_edit.hide()
-            else:
-                self.user_password_label.hide()
-                self.user_password_line_edit.hide()
-                self.user_confirm_password_label.hide()
-                self.user_confirm_password_line_edit.hide()
+            self.user_password_label.hide()
+            self.user_password_line_edit.hide()
+            self.user_confirm_password_label.hide()
+            self.user_confirm_password_line_edit.hide()
 
     def get_user_form_values(self):
         name = self.user_name_line_edit.text().strip()
@@ -199,67 +185,86 @@ class UserWindow(POSDialog):
         else:
             self.error_message(messages)
             
-    def edit_user(self):
-        def sucess_message(username: str):
-            message_title = "Utilizador Editado"
-            message = [f'Editado Utilizador {username}']
-            message_window = MessageWindow(message_title, message)
-            open_new_window(message_window)
-            self.clear_user_window() 
-        
+    def edit_user(self):        
         name, username, admin_check, active_check = self.get_user_form_values()
         user_id = self.current_user_dict['user_id']
         admin_status = self.current_user_dict['admin']
-        current_password = self.current_user_dict['password']
-        new_password = self.user_new_password_line_edit.text()
-        confirm_password = self.user_confirm_password_line_edit.text()
-                
-        messages = validate_edit_user_input(name, username, new_password, confirm_password)
+        password = self.user_password_line_edit.text().strip()
+        confirm_password = self.user_confirm_password_line_edit.text().strip()
         
-        if admin_check:
-            password = self.user_password_line_edit.text()
-            password_verify = verify_hashed_password(current_password, password)
-            messages.extend(password_verify)
-            if not messages:
-                if new_password:
-                    hashed_password = create_hash_password(new_password)
+        messages = validate_edit_user_input(name, username, password, confirm_password)
+                        
+        if not messages:  
+            if admin_check:
+                if password:
+                    hashed_password = create_hash_password(password)
                     edit_db_user(session, user_id, name, username, active_check, admin_check, password = hashed_password)
                 else:
                     edit_db_user(session, user_id, name, username, active_check, admin_check)
-                
-                sucess_message(username)  
+                self.sucess_edit_message(username)
+            elif admin_status:
+                if not messages:
+                    self.previous_admin_edit_window(name, username, admin_check, active_check, user_id)
+                    if not check_if_admin_by_id(session, user_id):
+                        self.sucess_edit_message(username)
+                        
             else:
-                self.error_message(messages)
-        elif admin_status:
-            password = self.user_password_line_edit.text()
-            password_verify = verify_hashed_password(current_password, password)
-            messages.extend(password_verify)
-            if not messages:
-                edit_db_user(session, user_id, name, username, active_check, admin_check, check_previous_admin = admin_status)
-                sucess_message(username)
-            else:
-                self.error_message(messages)
-        elif not messages:
-            edit_db_user(session, user_id, name, username, active_check, admin_check)
-            sucess_message(username)
+                edit_db_user(session, user_id, name, username, active_check, admin_check)
+                self.sucess_edit_message(username)
+            self.clear_user_window()
         else:
             self.error_message(messages)
-                 
+                
+                
+    def previous_admin_edit_window(self, name: str, username: str, admin_check: bool, active_check:bool,
+                                   user_id: int):
+        title = 'Mudança de Estatuto de Utilizador'
+        message = f'O utilizador {username} deixará de ter privilégios de administração.'
+        button_title = 'Continuar'
+        
+        window = EditAdminStatusWindow(name, username, admin_check, active_check, user_id, session,
+                                       title, message, button_title, edit_db_user)      
+        open_new_window(window)
+        
+    def sucess_edit_message(self, username: str):
+        message_title = "Utilizador Editado"
+        message = [f'Editado Utilizador {username}']
+        message_window = MessageWindow(message_title, message)
+        open_new_window(message_window)  
+                       
     def error_message(self, messages: list):
         message_title = "Erro de Inserção"
         message_window = MessageWindow(message_title, messages)
         open_new_window(message_window)
         self.clear_password_input()
+        
+    def remove_user(self):
+        user_id = self.current_user_dict['user_id']
+        username = self.current_user_dict['username']
+        title = 'Remoção de Utilizador'
+        message = f'O utilizador {username} será eliminado!'
+        button_title = 'Continuar'
+        
+        window = RemoveUserWindow(user_id, session, title, message, button_title, remove_db_user)
+        open_new_window(window)
+        
+        if not check_if_user_exists(session, user_id):
+            title = "Utilizador Removido"
+            message = [f'Removido Utilizador {username}']
+            message_window = MessageWindow(title, message)
+            open_new_window(message_window)
+            self.clear_user_window()     
                  
     def clear_user_window(self):
+        try:
+            self.set_combo_box()
+            self.user_list_combo_box.setCurrentIndex(-1)
+        except AttributeError:
+            pass
         self.user_name_line_edit.setText('')
         self.user_username_line_edit.setText('')
         self.clear_password_input()
         self.user_admin_check_box.setChecked(False)
-        try:
-            self.user_list_combo_box.setCurrentIndex(-1)
-        except AttributeError:
-            pass
         
     def clear_password_input(self):
         self.user_password_line_edit.setText('')
@@ -587,13 +592,21 @@ def open_editable_UserWindow():
     title = 'Utilizador'
     user_cb = 'Ativo'
     create_button = 'Editar Utilizador'
-    edit_dict = get_users_dict(session)
-    
-    window = UserWindow(title = title, user_cb = user_cb, create_button = create_button,
-                             edit_dict = edit_dict)
+    edit = check_users_exist(session)
+    if not edit:
+        no_users_window()
+    else:   
+        window = UserWindow(title = title, user_cb = user_cb, create_button = create_button,
+                             edit = edit)
+        open_new_window(window)
+
+def no_users_window():
+    title = 'Sem Utilizadores'
+    message = 'Sem Utilizadore criados, criar Utilizador?'
+    create_button = 'Criar Utilizador'
+    user_window = UserWindow()
+    window = MissingValueWindow(title, message, create_button, user_window)
     open_new_window(window)
-
-
         
         
         
