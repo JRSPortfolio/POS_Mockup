@@ -30,7 +30,8 @@ class Produto(Base):
     price_withouth_iva = Column(Numeric(10, 2), nullable = False)
     cat_id = Column(Integer, ForeignKey("categorias.cat_id"), nullable = False)
     iva_id = Column(Integer, ForeignKey("tipo_iva.iva_id"), nullable = False)
-    ordem = Column(String(255), nullable = False, unique = True)
+    ordem = Column(String(255), nullable = True, unique = True)
+    ativo = Column(Boolean, nullable = False)
     description = Column(String(255), nullable = True)
     
     categoria = relationship('Categoria', back_populates = 'produto')

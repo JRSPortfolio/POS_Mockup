@@ -1,23 +1,25 @@
-from PyQt6.QtWidgets import (QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QCheckBox, QTableView, QHeaderView)
+from PyQt6.QtWidgets import (QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QTableView, QHeaderView, QCheckBox)
 from PyQt6.QtCore import Qt
 from database.pos_crud_and_validations import (get_categories_list, get_tipo_iva_list, validate_add_product_inputs, 
                                get_product_name_by_category_and_order, switch_product_order,
                                get_amount_products_in_category, get_product_by_name_and_category,
                                edit_product_values, get_product_id_by_name_and_category,
-                               validate_edit_product_inputs, reorder_products_order, remove_product_by_order_name)
+                               validate_edit_product_inputs, reorder_products_order, remove_product_by_order_name,
+                               get_last_product_order)
 from PyQt6.QtGui import QStandardItem
 from database.mysql_engine import session
 
-from gui.pos_custom_widgets import (POSDialog, MessageWindow, open_new_window, RoundedButton, HighOptionsButton, 
+from gui.pos_custom_widgets import (POSDialog, MessageWindow, open_new_window, HighOptionsButton, 
                                     RoundedComboBox, EditProductOrderWindow, TableSelectionUpButton,
                                     TableSelectionDownButton, ReadOnlyItemModel, LargeThinButton)
 
 from gui.pos_add_models import ProductWindow
+from decimal import Decimal as dec
 
 class EditProductWindow(ProductWindow):
-    def __init__(self, category_list: list, iva_list: list, product_name = None, product_price = None,
-                 product_iva_cb = None, product_order = None, product_iva_type = None, product_category = None,
-                 product_description = None):
+    def __init__(self, product_name: str, product_price: dec, product_iva_cb: bool, product_order: int, 
+                 product_iva_type: int, product_category: str, product_description: str, product_active: bool,
+                 *args, **kwargs):
         self.product_name = product_name
         self.product_price = product_price
         self.product_iva_cb = product_iva_cb
@@ -25,15 +27,18 @@ class EditProductWindow(ProductWindow):
         self.product_iva_type = product_iva_type
         self.product_category = product_category
         self.product_description = product_description
+        self.product_active = product_active
         
-        super(EditProductWindow, self).__init__(category_list, iva_list)
+        super(EditProductWindow, self).__init__(*args, **kwargs)
         self.set_edit_product_values()
         
     def set_edit_product_values(self):
         self.product_name_line_edit.setText(self.product_name)
         self.product_price_line_edit.setText(self.product_price)
         self.product_set_iva_check_box.setChecked(self.product_iva_cb)
-        self.product_order_spin_box.setValue(self.product_order)
+        if self.product_order:
+            self.product_order_spin_box.setValue(self.product_order)
+        self.product_active_check_box.setChecked(self.product_active)
         self.product_iva_combo_box.setCurrentText(self.product_iva_type)
         self.product_category_combo_box.setCurrentText(self.product_category)
         self.product_description_line_edit.setText(self.product_description)
@@ -46,6 +51,8 @@ class EditProductWindow(ProductWindow):
         values = self.product_values_dict()
         name = values['name']
         price = values['price']
+        active_status = self.product_active
+        new_status = self.product_active_check_box.isChecked()
         
         if category == self.product_category and name == self.product_name:
             messages = validate_edit_product_inputs(name, price)
@@ -54,17 +61,21 @@ class EditProductWindow(ProductWindow):
         
         
         same_order_num = self.product_order == existing_order
+        
+        if not messages:
+            if (category == self.product_category and same_order_num) or not new_status:
+                self.edit_db_product(values, category)
+            elif (category == self.product_category and not same_order_num) and active_status:
+                existing_name = get_product_name_by_category_and_order(session, existing_order, category)
+                self.set_product_edit_order_window(existing_order, existing_name, self.product_order, name,
+                                                    category, values)
+            else:
+                if not self.product_order:
+                    self.product_order = get_last_product_order(session, category) + 1
+                self.edit_diferent_category_product(category, values)
                 
-        if not messages and category == self.product_category and same_order_num:
-            self.edit_db_product(values, category)
-            self.close()
-        elif not messages and category == self.product_category and not same_order_num:
-            existing_name = get_product_name_by_category_and_order(session, existing_order, category)
-            self.set_product_edit_order_window(existing_order, existing_name, self.product_order, name,
-                                                category, values)
-            self.close()
-        elif not messages and category != self.product_category:    
-            self.edit_diferent_category_product(category, values)
+            if active_status and not new_status:
+                reorder_products_order(session, category, existing_order)
             self.close()
         else:
             message_title = "Erro de Inserção"
@@ -80,14 +91,13 @@ class EditProductWindow(ProductWindow):
         button_title = f'Gravar {new_name}\nna posição\n{new_order}'
         additional_button_title = f'Gravar {new_name}\nna posição\n{existing_order}'
         
-        window = EditProductOrderWindow(title = title, message = message, button_title = button_title,
-                                        add_value_window = self.edit_db_product, aditional_button_title = additional_button_title,
-                                        add_aditional_window = self.edit_switch_order_product, existing_name = existing_name, 
-                                        category = category, existing_order = existing_order, new_order = new_order,
-                                        values = values)
+        window = EditProductOrderWindow(existing_name, category, existing_order, new_order, values, title = title,
+                                        message = message, button_title = button_title, add_value_window = self.edit_db_product,
+                                        aditional_button_title = additional_button_title,
+                                        add_aditional_window = self.edit_switch_order_product)
         open_new_window(window)
         
-    def edit_switch_order_product(self, existing_order, new_order, category: str, existing_name: str, values: dict):
+    def edit_switch_order_product(self, existing_order: int, new_order: int, category: str, existing_name: str, values: dict):
         existing_order_name = category + str(existing_order)
         new_order_name = category + str(new_order)
         placeholder = '_'
@@ -118,13 +128,11 @@ class EditProductWindow(ProductWindow):
         additional_button_title = f'Gravar {name}\nna posição\n{current_order}'
         self.different_category_check = True
         
-        window = EditProductOrderWindow(title = title, message = message, button_title = button_title,
-                                        add_value_window = self.edit_db_product,
+        window = EditProductOrderWindow(existing_name, current_category, self.product_order, new_order, values,
+                                        previous_category, self.different_category_check, title = title,
+                                        message = message, button_title = button_title, add_value_window = self.edit_db_product,
                                         aditional_button_title = additional_button_title,
-                                        add_aditional_window = self.edit_diferent_category_and_order_product,
-                                        existing_name = existing_name, category = current_category, existing_order = self.product_order,
-                                        new_order = new_order, values = values, previous_category = previous_category,
-                                        check = self.different_category_check)
+                                        add_aditional_window = self.edit_diferent_category_and_order_product)
         open_new_window(window)
         
     def edit_diferent_category_and_order_product(self, current_order: int, new_order: int, current_category: str,
@@ -146,8 +154,13 @@ class EditProductWindow(ProductWindow):
         self.product_order_spin_box.setMinimum(1)
         
         if self.product_category == self.product_category_combo_box.currentText():
-            self.product_order_spin_box.setMaximum(order - 1)
-            self.product_order_spin_box.setValue(self.product_order)
+            if self.product_order:
+                self.product_order_spin_box.setMaximum(order - 1)
+                self.product_order_spin_box.setValue(self.product_order)
+            else:
+                self.product_order_spin_box.setMaximum(order)
+                self.product_order_spin_box.setValue(order) 
+            
         else:
             self.product_order_spin_box.setMaximum(order)
             self.product_order_spin_box.setValue(order)
@@ -169,6 +182,7 @@ class EditRemoveProdutcsWindow(POSDialog):
         
         category_label = QLabel('Categoria:')
         self.category_combo_box = RoundedComboBox()
+        self.active_products_check_box = QCheckBox('Produtos Ativos')
         self.produts_table = QTableView()
         self.move_product_up_button = TableSelectionUpButton()
         self.move_product_down_button = TableSelectionDownButton()
@@ -178,6 +192,7 @@ class EditRemoveProdutcsWindow(POSDialog):
         edit_rem_close_button = HighOptionsButton('Fechar')
         
         self.order_edit_button.setCheckable(True)
+        self.active_products_check_box.setChecked(True)
         
         self.produts_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         
@@ -188,7 +203,8 @@ class EditRemoveProdutcsWindow(POSDialog):
         self.set_table_model()
         
         cat_prod_fields_layout.addWidget(category_label, 0, 0)
-        cat_prod_fields_layout.addWidget(self.category_combo_box, 0 ,1)
+        cat_prod_fields_layout.addWidget(self.category_combo_box, 0 , 1)
+        cat_prod_fields_layout.addWidget(self.active_products_check_box, 0 , 2, Qt.AlignmentFlag.AlignRight)
         products_table_layout.addWidget(self.produts_table, 1, 0, 2, 3)
         products_table_layout.addWidget(self.move_product_up_button, 1, 3, alignment = Qt.AlignmentFlag.AlignVCenter)
         products_table_layout.addWidget(self.move_product_down_button, 2, 3, alignment = Qt.AlignmentFlag.AlignVCenter)
@@ -198,6 +214,7 @@ class EditRemoveProdutcsWindow(POSDialog):
         edit_rem_cat_pro_button_layout.addWidget(edit_rem_close_button)
         
         self.category_combo_box.currentIndexChanged.connect(self.table_category_change)
+        self.active_products_check_box.stateChanged.connect(self.set_table_model)
         self.move_product_up_button.clicked.connect(self.up_button_check)
         self.move_product_down_button.clicked.connect(self.down_button_check)
         product_edit_button.clicked.connect(self.edit_product_in_row)
@@ -214,7 +231,8 @@ class EditRemoveProdutcsWindow(POSDialog):
         self.category = self.category_combo_box.currentText().strip()
         
         headers = ['Ordem', 'Produto', 'Preço', 'IVA']
-        contents = get_amount_products_in_category(session, self.category)
+        active_check = self.active_products_check_box.isChecked()
+        contents = get_amount_products_in_category(session, self.category, active_check)
         
         self.row_number = len(contents.keys())
         
@@ -379,10 +397,13 @@ class EditRemoveProdutcsWindow(POSDialog):
             db_product = get_product_by_name_and_category(session, name, self.category)
             categories_list = get_categories_list(session)
             iva_list = get_tipo_iva_list(session)
-            edit_window = EditProductWindow(categories_list, iva_list, product_name = db_product['name'],
-                                        product_price = db_product['price'], product_iva_cb = True, 
-                                        product_order = db_product['order'], product_iva_type = db_product['iva_type'],
-                                        product_category = self.category, product_description = db_product['description'])
+            if db_product['ativo']:
+                ativo = True
+            else:
+                ativo = False
+            edit_window = EditProductWindow(db_product['name'], db_product['price'], True, db_product['order'], 
+                                            db_product['iva_type'], self.category, db_product['description'],
+                                            ativo, categories_list, iva_list)
             open_new_window(edit_window)
             self.set_table_model()
             

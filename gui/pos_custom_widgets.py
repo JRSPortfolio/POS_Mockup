@@ -1,9 +1,10 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QWidget, QComboBox, QCheckBox)
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QStandardItemModel
 from database.mysql_engine import session
 from database.pos_crud_and_validations import get_stylesheet
+from decimal import Decimal as dec
 
 FONT_TYPE = QFont("Segoe UI", 10, weight = -1)
 FONT_TYPE_BOLD = QFont("Segoe UI", 10)
@@ -11,12 +12,17 @@ FONT_TYPE_BOLD.setWeight(QFont.Weight.Bold)
 STYLE = get_stylesheet()
 
 class POSDialog(QDialog):
-    def __init__(self):
-        super(POSDialog, self).__init__()
+    qdialog_signal = pyqtSignal()
+    def __init__(self, *args, **kwargs):
+        super(POSDialog, self).__init__(*args, **kwargs)
         self.setFont(FONT_TYPE)
         self.setStyleSheet(STYLE)
+
         if self.set_widgets_placements():
             self.set_widgets_placements()
+            
+    def emit_signal(self):
+        self.qdialog_signal.emit()
             
 class SetEditOptionsWindow(POSDialog):
     ###
@@ -28,6 +34,7 @@ class SetEditOptionsWindow(POSDialog):
     ### self.get_value_by_name -> retrieve value by name function
     ### self.change_by_name -> change row by name function
     ### self.remove_by_name -> remove by name function
+    ### self.check_if_items -> check if removing listing is not empty
     ###
     ### Usefull fields in super:
     ### self.setWindowTitle = 'Adicionar Taxa de IVA'
@@ -151,10 +158,14 @@ class SetEditOptionsWindow(POSDialog):
                     widget.deleteLater()
                     
     def remove_row(self, name: str):
-        self.remove_by_name(session, name)
-        self.remove_listing()
-        self.remove_listing()
-        self.set_types_list()
+        if self.check_if_items(session, name):
+            self.remove_message_window(name)
+        else:    
+            self.remove_by_name(session, name)
+            self.remove_listing()
+            self.remove_listing()
+            self.set_types_list()
+        self.emit_signal()
         
     def edit_row(self, name:str , new_name: str, value: str, new_value: str):
         messages = self.validate_row(name, new_name, value, new_value)
@@ -167,6 +178,7 @@ class SetEditOptionsWindow(POSDialog):
             self.remove_listing()
             self.remove_listing()
             self.set_types_list()
+            self.emit_signal()
         else:
             message_title = "Erro de Edição"
             message_window = MessageWindow(message_title, messages)
@@ -174,6 +186,9 @@ class SetEditOptionsWindow(POSDialog):
             self.remove_listing()
             self.remove_listing()
             self.set_types_list()
+            
+    def remove_message_window(self, name: str):
+        ...
             
 class MessageWindow(POSDialog):
     def __init__(self, titulo: str, messages: list):
@@ -197,16 +212,16 @@ class MessageWindow(POSDialog):
         
         message_close_button.clicked.connect(lambda: self.close())
         
-class MissingValueWindow(POSDialog):
+class OptionsSelectionWindow(POSDialog):
     def __init__(self, title: str, message: str, button_title: str, add_value_window: POSDialog, aditional_button_title = None,
-                 add_aditional_window = None):
+                 add_aditional_window = None, *args, **kwargs):
         self.title = title
         self.message = message
         self.button_title = button_title
         self.add_value_window = add_value_window
         self.aditional_button_title = aditional_button_title
         self.add_aditional_window = add_aditional_window
-        super(MissingValueWindow, self).__init__()
+        super(OptionsSelectionWindow, self).__init__(*args, **kwargs)
     
     def set_widgets_placements(self):
         self.setGeometry(200, 200, 300, 200)
@@ -243,10 +258,10 @@ class MissingValueWindow(POSDialog):
         self.close()
         open_new_window(self.add_aditional_window)
         
-class NewProductOrderWindow(MissingValueWindow):
-    def __init__(self, product_name = None, price = None, category = None, iva_value = None,
-                 order_num = None, description = None, iva_checkbox = None, new_order_num = None,
-                 existing_product_name = None, *args, **kwargs):
+class NewProductOrderWindow(OptionsSelectionWindow):
+    def __init__(self, product_name: str, price: dec, category: str, iva_value: int, order_num: int,
+                 description: str, iva_checkbox: bool, new_order_num: int, existing_product_name: str,
+                 active: bool, *args, **kwargs):
         self.product_name = product_name
         self.price = price
         self.category = category
@@ -256,22 +271,23 @@ class NewProductOrderWindow(MissingValueWindow):
         self.iva_checkbox = iva_checkbox
         self.new_order_num = new_order_num
         self.existing_product_name = existing_product_name
+        self.product_active = active
         super(NewProductOrderWindow, self).__init__(*args, **kwargs)
         
     def open_window(self):
         self.close()
         self.add_value_window(self.product_name, self.price, self.category, self.iva_value, self.new_order_num, 
-                              self.description, self.iva_checkbox)
+                              self.description, self.iva_checkbox, self.product_active)
     
     def open_aditional_window(self):
         self.close()
         self.add_aditional_window(self.product_name, self.price, self.category, self.iva_value, self.order_num,
-                                  self.description, self.iva_checkbox, self.new_order_num, self.existing_product_name)
+                                  self.description, self.iva_checkbox, self.new_order_num, self.existing_product_name,
+                                  self.product_active)
         
-class EditProductOrderWindow(MissingValueWindow):
-    def __init__(self, existing_name = None, category = None, existing_order = None, 
-                 new_order = None, values = None, previous_category = None,
-                 check = None, *args, **kwargs):
+class EditProductOrderWindow(OptionsSelectionWindow):
+    def __init__(self, existing_name: str, category: str, existing_order: int,  new_order: int, values: dict,
+                 previous_category = None, check = None, *args, **kwargs):
         self.existing_name = existing_name
         self.category = category
         self.existing_order = existing_order
@@ -302,7 +318,7 @@ class EditProductOrderWindow(MissingValueWindow):
             self.add_aditional_window(self.existing_order, self.new_order, self.category,
                                       self. existing_name, self.values)
 
-class EditAdminStatusWindow(MissingValueWindow):
+class EditAdminStatusWindow(OptionsSelectionWindow):
     def __init__(self, name: str, username: str, admin_check: bool, active_check:bool,
                  user_id: int, session, *args, **kwargs):
         self.name = name
@@ -319,7 +335,7 @@ class EditAdminStatusWindow(MissingValueWindow):
         self.add_value_window(self.session, self.user_id, self.name, self.username,
                               self.active_check, self.admin_check, check_previous_admin = True)
         
-class RemoveUserWindow(MissingValueWindow):
+class RemoveUserWindow(OptionsSelectionWindow):
     def __init__(self, user_id: str, session, *args, **kwargs):
         self.user_id = user_id
         self.session = session
@@ -329,15 +345,78 @@ class RemoveUserWindow(MissingValueWindow):
     def open_window(self):
         self.close()
         self.add_value_window(self.session, self.user_id)
+        
+class ReplaceItemsConfirmationWindow(OptionsSelectionWindow):
+    def __init__(self, initial: str, destination: str, session, *args, **kwargs):
+        self.initial = initial
+        self.destination = destination
+        self.session = session
+        
+        super(ReplaceItemsConfirmationWindow, self).__init__(*args, **kwargs)
+        
+    def open_window(self):
+        self.close()
+        self.add_value_window(self.session, self.initial, self.destination)
+        
+class ReplaceItemsWindow(POSDialog):
+    def __init__(self, item: str, items_list, title: str, info_label: str,
+                 accept_button: str, replace_items_method, session,
+                 *args, **kwargs):
+        self.item = item
+        self.items_list = items_list
+        self.window_title = title
+        self.info_label = info_label
+        self.accept_button = accept_button
+        self.replace_items_method = replace_items_method
+        self.session = session
+        
+        super(ReplaceItemsWindow, self).__init__(*args, **kwargs)
+        
+    def set_widgets_placements(self):
+        self.setGeometry(200, 200, 500, 200)
+        self.setWindowTitle(self.window_title)
+        
+        base_layout = QVBoxLayout()
+        self.setLayout(base_layout)
+        
+        fields_layout = QGridLayout()
+        buttons_layout = QHBoxLayout()
+        base_layout.addLayout(fields_layout)
+        base_layout.addLayout(buttons_layout)
+        
+        info_label = QLabel(self.info_label)
+        self.items_list_combo_box = RoundedComboBox()
+        self.transfer_items_button = HighOptionsButton(self.accept_button)
+        self.close_button = HighOptionsButton('Fechar')
+        
+        for item in self.items_list:
+            self.items_list_combo_box.addItem(item)
 
-
+        fields_layout.addWidget(info_label, 0, 0)
+        fields_layout.addWidget(self.items_list_combo_box, 1, 0)
+        buttons_layout.addWidget(self.transfer_items_button)
+        buttons_layout.addWidget(self.close_button)
+        
+        
+        self.transfer_items_button.clicked.connect(self.transfer_item_confirm)
+        self.close_button.clicked.connect(self.close)
+        
+    def transfer_item_confirm(self):
+        destination = self.items_list_combo_box.currentText()
+        button_title = 'Transferir'
+        message = f'Transferir os produtos de {self.item} para {destination}?'
+        replace_window = ReplaceItemsConfirmationWindow(self.item, destination, self.session, self.window_title,
+                                                        message, button_title, self.replace_items_method)
+        self.close()
+        open_new_window(replace_window)
+        
 class RoundedButton(QPushButton):
-    def __init__(self, *args):
-        super(RoundedButton, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(RoundedButton, self).__init__(*args, **kwargs)
         
 class SmallOptionsButton(RoundedButton):
-    def __init__(self, *args):
-        super(SmallOptionsButton, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(SmallOptionsButton, self).__init__(*args, **kwargs)
         self.setFont(FONT_TYPE)
         self.setFixedSize(80, 22)
 
@@ -348,8 +427,8 @@ class HighOptionsButton(RoundedButton):
         self.setFixedSize(140, 40)
         
 class HighLargeOptionsButton(RoundedButton):
-    def __init__(self, *args):
-        super(HighLargeOptionsButton, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(HighLargeOptionsButton, self).__init__(*args, **kwargs)
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(170, 65)
         
@@ -386,6 +465,12 @@ class TableSelectionDownButton(TableSelectionUpButton):
         self.setFixedSize(30, 50)
         self.setIcon(QIcon("assets//move_down_arrow.png"))
         self.setIconSize(QSize(30, 45))
+        
+class CategorySectionButton(RoundedButton):
+    def __init__(self, *args):
+        super(CategorySectionButton, self).__init__(*args)
+        self.setFont(FONT_TYPE_BOLD)
+        self.setFixedSize(120, 32)
         
 class RoundedCenterLineEdit(QLineEdit):
     def __init__(self, *args, **kwargs):

@@ -44,6 +44,45 @@ def remove_category_by_name(db_session: Session, category_name: str):
     db_session.commit()
     db_session.close()
     
+def replace_categories_in_products(db_session: Session, initial: str, destination: str):
+    initial_id = db_session.query(Categoria).filter_by(cat_name = initial).value(Categoria.cat_id)
+    destination_id = db_session.query(Categoria).filter_by(cat_name = destination).value(Categoria.cat_id)
+    products = db_session.query(Produto).filter_by(cat_id = initial_id).all()
+    order = get_last_product_order(db_session, destination)
+    order += 1
+    
+    for product in products:
+        product.cat_id = destination_id
+        product.ordem = destination + str(order)
+        order += 1
+        db_session.merge(product)
+        
+    remove_category_by_name(db_session, initial)
+        
+    db_session.commit()
+    db_session.close()
+    
+def check_if_products_in_category(db_session: Session, category: str):
+    category_id = db_session.query(Categoria).filter_by(cat_name = category).value(Categoria.cat_id)
+    products = db_session.query(Produto).filter_by(cat_id = category_id).all()
+    
+    if products:
+        db_session.close()
+        return True
+    else:
+        db_session.close()
+        return False
+    
+def get_remainig_categories(db_session: Session, category: str):
+    categories = db_session.query(Categoria).filter(Categoria.cat_name != category).all()
+    categories_list = []
+    for cat in categories:
+        categories_list.append(cat.cat_name)
+
+    db_session.commit()
+    db_session.close()
+    return categories_list
+        
 def change_category_by_name(db_session: Session, category_name: str, new_name: str, value: int):    
     db_row = db_session.query(Categoria).filter(Categoria.cat_name == category_name).first()
     if db_row.cat_name != new_name:
@@ -63,20 +102,27 @@ def get_category_id_by_name(db_session: Session, name: str):
     db_session.close()
     return cat_id
 
-def get_amount_products_in_category(db_session: Session, category: str):
+def get_amount_products_in_category(db_session: Session, category: str, active_check: bool):
     category_id = get_category_id_by_name(db_session, category)
-    products = db_session.query(Produto).filter(Produto.cat_id == category_id).order_by(Produto.ordem).all()
+    if active_check:
+        products = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ativo == True).order_by(Produto.ordem).all()
+    else:
+        products = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ativo == False).order_by(Produto.ordem).all()
     
     product_items = {}
     
     for prod in products:
         iva_value = str(get_iva_value_by_id(db_session, prod.iva_id)) + '%'
-        order = prod.ordem[len(category):]
+        if prod.ordem:
+            order = prod.ordem[len(category):]
+        else:
+            order = None
         product_items[prod.prod_id] = [order, prod.name ,str(prod.price), iva_value]
         
     db_session.close()
     return product_items
     
+
     
     
 ###
@@ -168,6 +214,44 @@ def get_iva_value_and_name_by_id(db_session: Session, iva_id: int):
     iva = (iva_type.iva_description, iva_type.iva_value)
     db_session.close()
     return iva
+
+def replace_iva_in_products(db_session: Session, initial: str, destination: str):
+    initial_id = db_session.query(TipoIVA).filter_by(iva_description = initial).value(TipoIVA.iva_id)
+    destination_id = db_session.query(TipoIVA).filter_by(iva_description = destination).value(TipoIVA.iva_id)
+    new_iva_value = db_session.query(TipoIVA).filter_by(iva_description = destination).value(TipoIVA.iva_value)
+    products = db_session.query(Produto).filter_by(iva_id = initial_id).all()
+    iva_ref = dec((new_iva_value / 100) + 1)
+    
+    for product in products:
+        product.iva_id = destination_id
+        product.price_withouth_iva = product.price / iva_ref
+        db_session.merge(product)
+        
+    remove_iva_by_name(db_session, initial)
+        
+    db_session.commit()
+    db_session.close()
+    
+def check_if_products_in_iva(db_session: Session, iva_name: str):
+    iva_id = db_session.query(TipoIVA).filter_by(iva_description = iva_name).value(TipoIVA.iva_id)
+    products = db_session.query(Produto).filter_by(iva_id = iva_id).all()
+    
+    if products:
+        db_session.close()
+        return True
+    else:
+        db_session.close()
+        return False
+    
+def get_remainig_iva_types(db_session: Session, iva_name: str):
+    iva_names = db_session.query(TipoIVA).filter(TipoIVA.iva_description != iva_name).all()
+    iva_names_list = []
+    for iva in iva_names:
+        iva_names_list.append(iva.iva_description)
+
+    db_session.commit()
+    db_session.close()
+    return iva_names_list
 ###
 ###
 ### Produto
@@ -221,7 +305,7 @@ def validate_product_price(price: dec):
 
 def get_product_order(db_session: Session, order: int, category: str):
     order_name = category + str(order)
-    existing_order = db_session.query(Produto).filter(Produto.ordem == order_name).value(Produto.ordem)
+    existing_order = db_session.query(Produto).filter(Produto.ordem == order_name, Produto.ordem.isnot(None)).value(Produto.ordem)
     if not existing_order:
         order_num = None
         db_session.close()
@@ -232,7 +316,7 @@ def get_product_order(db_session: Session, order: int, category: str):
   
 def get_last_product_order(db_session: Session, category: str):
     category_id = db_session.query(Categoria).filter(Categoria.cat_name == category).value(Categoria.cat_id)
-    order = db_session.query(Produto).filter(Produto.cat_id == category_id).order_by(Produto.ordem.desc()).first()
+    order = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ordem.isnot(None)).order_by(Produto.ordem.desc()).first()
     if order:
         order_name = order.ordem
         order_num = int(order_name[len(category):])
@@ -248,7 +332,8 @@ def get_product_iva_type(db_session: Session, product: str, category: str):
     db_session.close()
     return iva_name
     
-def create_db_product(db_session: Session, name: str, price: dec, cat_name: str, iva_value: int, ordem: int, description: str, iva_checkbox: bool):
+def create_db_product(db_session: Session, name: str, price: dec, cat_name: str, iva_value: int, ordem: int, description: str, iva_checkbox: bool,
+                      active_check_box: bool):
     cat_id = get_category_id_by_name(db_session, cat_name)
     iva_price = set_iva_price(price, iva_checkbox, iva_value)
     iva_id = get_iva_id(db_session, iva_value)
@@ -256,12 +341,20 @@ def create_db_product(db_session: Session, name: str, price: dec, cat_name: str,
     
     price = price.quantize(dec('0.00'))
     iva_price = iva_price.quantize(dec('0.00'))
-    if iva_checkbox:
-        db_product = Produto(name = name, price = price, price_withouth_iva = iva_price, cat_id = cat_id, iva_id = iva_id,
-                             ordem = product_order, description = description)
+    if active_check_box:
+        if iva_checkbox:
+            db_product = Produto(name = name, price = price, price_withouth_iva = iva_price, cat_id = cat_id, iva_id = iva_id,
+                                ordem = product_order, description = description, ativo = active_check_box)
+        else:
+            db_product = Produto(name = name, price = iva_price, price_withouth_iva = price, cat_id = cat_id, iva_id = iva_id,
+                                ordem = product_order, description = description, ativo = active_check_box)
     else:
-        db_product = Produto(name = name, price = iva_price, price_withouth_iva = price, cat_id = cat_id, iva_id = iva_id,
-                             ordem = product_order, description = description)
+        if iva_checkbox:
+            db_product = Produto(name = name, price = price, price_withouth_iva = iva_price, cat_id = cat_id, iva_id = iva_id,
+                                 description = description, ativo = active_check_box)
+        else:
+            db_product = Produto(name = name, price = iva_price, price_withouth_iva = price, cat_id = cat_id, iva_id = iva_id,
+                                 description = description, ativo = active_check_box)
     
     db_session.add(db_product)
     db_session.commit()
@@ -292,14 +385,18 @@ def get_product_by_name_and_category(db_session: Session, name: str, category: s
     category_id = get_category_id_by_name(db_session, category)
     db_produto = db_session.query(Produto).filter_by(name = name, cat_id = category_id).first()
     if db_produto:
-        order = int(db_produto.ordem[len(category):])
+        if db_produto.ordem:
+            order = int(db_produto.ordem[len(category):])
+        else:
+            order = None
         iva_type = get_iva_value_and_name_by_id(db_session, db_produto.iva_id)
         iva_tag = f"{iva_type[0]} ({iva_type[1]}%)"
         produto = dict(name = db_produto.name,
                     price = str(db_produto.price),
                     order = order,
                     iva_type = iva_tag,
-                    description = db_produto.description)
+                    description = db_produto.description,
+                    ativo = db_produto.ativo)
         db_session.close()
         return produto
     else:
@@ -334,12 +431,20 @@ def edit_product_values(db_session: Session, values: dict):
         product.iva_id = values['iva_id']
         db_session.merge(product)
         
-    if product.ordem != values['ordem']:
+    if product.ordem != values['ordem'] and values['ativo']:
         product.ordem = values['ordem']
         db_session.merge(product)
 
     if product.description != values['description']:
         product.description = values['description']
+        db_session.merge(product)
+        
+    if product.ativo != values['ativo']:
+        product.ativo = values['ativo']
+        db_session.merge(product)
+        
+    if not product.ativo:
+        product.ordem = None
         db_session.merge(product)
         
     db_session.commit()
@@ -355,7 +460,8 @@ def reorder_products_order(db_session: Session, category: str, order: int):
     order_name = category + str(order + 1)
     category_id = get_category_id_by_name(db_session, category)
     products = db_session.query(Produto).filter(Produto.cat_id == category_id,
-                                                Produto.ordem >= order_name).order_by(Produto.ordem).all()
+                                                Produto.ordem >= order_name,
+                                                Produto.ativo.isnot(None)).order_by(Produto.ordem).all()
         
     for prod in products:
         order_name = category + str(order)
