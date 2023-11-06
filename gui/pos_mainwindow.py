@@ -10,11 +10,12 @@ import sys
 from gui.pos_add_models import (UserWindow, SetEditCategoryWindow, open_AddProductWindow,
                                 SetEditIVAWindow, open_editable_UserWindow)
 from gui.pos_edit_models import EditRemoveProdutcsWindow
-from gui.pos_custom_widgets import(STYLE, MessageWindow, OptionsSectionButton, PaymentSectionButton,
+from gui.pos_custom_widgets import(STYLE, MessageWindow, SquareOptionsButton, PaymentSectionButton,
                                    FONT_TYPE, RoundedComboBox, RoundedLeftLineEdit, HighOptionsButton, CategorySectionButton,
                                    POSDialog)
 from database.pos_crud_and_validations import (get_users_usernames, check_if_admin_by_username, verify_hashed_password,
-                                               get_user_password_by_username, create_hash_password, get_categories_list)
+                                               get_user_password_by_username, create_hash_password, get_categories_list,
+                                               get_products_from_category)
 from database.mysql_engine import session
     
 class POSMainWindow(QMainWindow):
@@ -76,7 +77,7 @@ class POSMainWindow(QMainWindow):
         self.rightLayout.addWidget(paymentBox)
         
         self.categories_section_layout = QVBoxLayout()
-        self.products_section_layout = QHBoxLayout()
+        self.products_section_layout = QGridLayout()
         self.options_section_layout = QHBoxLayout()
         self.sales_section_layout = QHBoxLayout()
         self.payment_section_layout = QHBoxLayout()
@@ -103,7 +104,7 @@ class POSMainWindow(QMainWindow):
         self.set_payment_section()
         
     def set_options_section(self):
-        user_button = OptionsSectionButton('Utilizador')        
+        user_button = SquareOptionsButton('Utilizador')        
         self.options_section_layout.addWidget(user_button)
         
         user_button.clicked.connect(self.set_login_widget)
@@ -126,8 +127,8 @@ class POSMainWindow(QMainWindow):
         
         self.categories_header_layout.addWidget(self.favorites_button, 0, 0)
         self.categories_header_layout.addWidget(self.multiple_categories_check_box, 0, 1, Qt.AlignmentFlag.AlignRight)
-        self.favorites_button.clicked.connect(lambda: print('click'))
-        self.multiple_categories_check_box.stateChanged.connect(lambda: print('check'))
+        self.favorites_button.clicked.connect(lambda: print('Favorites click'))
+        self.multiple_categories_check_box.stateChanged.connect(self.multiple_categories_set_check)
                                             
     def clean_categories(self, max_cols: int):
         existing_cols = self.categories_buttons_layout.columnCount()
@@ -151,6 +152,11 @@ class POSMainWindow(QMainWindow):
     def position_categories(self, max_cols: int):
         categories_list = get_categories_list(session)
         
+        try:
+            checked_categories = self.check_checked_categories()
+        except AttributeError:
+            checked_categories = None
+        
         self.categories_buttons = {}
         row = 1
         col = 0
@@ -158,13 +164,81 @@ class POSMainWindow(QMainWindow):
             button = CategorySectionButton(category)
             self.categories_buttons[category] = button
             self.categories_buttons_layout.addWidget(self.categories_buttons[category], row, col)
-            print(f'{row} --- {col}')
-            self.categories_buttons[category].clicked.connect(lambda _, row = row, col = col: print(f'{row}  --  {col}'))
+            self.categories_buttons[category].setCheckable(True)
+            self.categories_buttons[category].clicked.connect(lambda _, category = category: self.select_categories(category))
+            if checked_categories:
+                if category in checked_categories:
+                    self.categories_buttons[category].setChecked(True)
             col += 1
             if col == max_cols:
                 col = 0
                 row += 1
                 
+    def check_checked_categories(self):
+        categories = []
+        for category in self.categories_buttons.keys():
+            if self.categories_buttons[category].isChecked():
+                categories.append(category)
+        return categories
+                    
+    def multiple_categories_set_check(self):
+        if not self.multiple_categories_check_box.isChecked():
+            for category in self.categories_buttons.keys():
+                self.categories_buttons[category].setChecked(False)
+                                            
+    def select_categories(self, category: str):
+        cols = self.products_section_layout.columnCount()
+        self.clean_products(cols)
+        
+        if not self.multiple_categories_check_box.isChecked():
+            for button in self.categories_buttons.keys():
+                if button != category:
+                    self.categories_buttons[button].setChecked(False)
+                    
+        self.set_products_positions(6)
+         
+    def set_products_positions(self, max_cols: int):
+        row = 0
+        col = 0    
+        
+        self.products_listing_button = {}
+        products_dict = {}
+        
+        for category in self.categories_buttons.keys():
+            if self.categories_buttons[category].isChecked():
+                products_dict[category] = get_products_from_category(session, category)
+                if col != 0:
+                    col = 0
+                    row += 1
+                
+                for product in products_dict[category].keys():
+                    button = SquareOptionsButton(products_dict[category][product])
+                    self.products_listing_button[product] = button
+                    self.products_section_layout.addWidget(self.products_listing_button[product], row, col)
+                    self.products_listing_button[product].clicked.connect(lambda _, category = category, product = product: print(f'{category} -- {products_dict[category][product]}'))
+                    col += 1
+                    if col == max_cols:
+                        col = 0
+                        row += 1
+        
+    def clean_products(self, max_cols: int):
+        existing_cols = self.products_section_layout.columnCount()
+        for row in range(self.products_section_layout.rowCount()):
+            if max_cols < existing_cols:
+                for col in range(existing_cols):
+                    item = self.products_section_layout.itemAtPosition(row, col)
+                    if item:
+                        widget = item.widget()
+                        self.products_section_layout.removeItem(item)
+                        widget.deleteLater()
+            else:
+                for col in range(max_cols):        
+                    item = self.products_section_layout.itemAtPosition(row, col)
+                    if item:
+                        widget = item.widget()
+                        self.products_section_layout.removeItem(item)
+                        widget.deleteLater()
+                        
     def set_app_widget(self):
         self.baseWidget.setCurrentIndex(0)
         try:
@@ -279,19 +353,35 @@ class POSMainWindow(QMainWindow):
         window_width = self.width()
 
         if window_width < 1000:
-            max_cols = 3
+            cat_max_cols = 3
         elif window_width >= 1000 and window_width < 1200:
-            max_cols = 4
+            cat_max_cols = 4
         elif window_width >= 1200 and window_width < 1400:
-            max_cols = 5
+            cat_max_cols = 5
         elif window_width >= 1400:
-            max_cols = 6
+            cat_max_cols = 6
+        
+        if window_width < 900:
+            product_max_cols = 4  
+        if window_width >= 900 and window_width < 1000:
+            product_max_cols = 5
+        elif window_width >= 1000 and window_width < 1100:
+            product_max_cols = 6
+        elif window_width >= 1100 and window_width < 1200:
+            product_max_cols = 7
+        elif window_width >= 1200 and window_width < 1300:
+            product_max_cols = 8
+        elif window_width >= 1300 and window_width < 1400:
+            product_max_cols = 9
+        elif window_width > 1400:
+            product_max_cols = 10
             
-        # print(f'before set {max_cols}')
         if self.categories_buttons_layout.columnCount() > 0:
-            self.clean_categories(max_cols)
-            self.position_categories(max_cols)
-        # print(f'after set {max_cols}')
+            self.clean_categories(cat_max_cols)
+            self.position_categories(cat_max_cols)
+            if self.products_section_layout.columnCount() > 0:
+                self.clean_products(product_max_cols)
+                self.set_products_positions(product_max_cols)
         
     def update_window_on_signal(self):
         cols = self.categories_buttons_layout.columnCount()

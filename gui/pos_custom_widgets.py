@@ -432,11 +432,22 @@ class HighLargeOptionsButton(RoundedButton):
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(170, 65)
         
-class OptionsSectionButton(RoundedButton):
+class SquareOptionsButton(RoundedButton):
     def __init__(self, *args):
-        super(OptionsSectionButton, self).__init__(*args)
+        super(SquareOptionsButton, self).__init__(*args)
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(75, 75)
+        
+        self.args = args
+        
+        self.setText('')
+        
+        layout = QHBoxLayout()
+        label = QLabel(self.args[0])
+        label.setWordWrap(True)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label)
+        self.setLayout(layout)
         
 class PaymentSectionButton(RoundedButton):
     def __init__(self, *args):

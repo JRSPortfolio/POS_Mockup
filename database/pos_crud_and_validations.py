@@ -477,6 +477,16 @@ def remove_product_by_order_name(db_session: Session, order_name: str):
     db_session.delete(product)
     db_session.commit()
     db_session.close()
+    
+def get_products_from_category(db_session: Session, category: str):
+    category_id = get_category_id_by_name(db_session, category)
+    products = db_session.query(Produto).filter_by(cat_id = category_id).all()
+    
+    products_dict = {}
+    for product in products:
+        products_dict[product.prod_id] = product.name
+        
+    return products_dict
         
 # ###
 ###
