@@ -1,21 +1,19 @@
-# from PyQt6.QtCore import 
-# from PyQt6.QtGui import 
-import typing
-from PyQt6 import QtGui
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QLabel,
-                             QStackedWidget, QFormLayout, QGridLayout, QCheckBox)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QAction, QResizeEvent
-import sys
+from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QLabel, QStackedWidget,
+                             QFormLayout, QGridLayout, QCheckBox, QTableView, QHeaderView)
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QAction, QResizeEvent, QStandardItem
+
 from gui.pos_add_models import (UserWindow, SetEditCategoryWindow, open_AddProductWindow,
                                 SetEditIVAWindow, open_editable_UserWindow)
 from gui.pos_edit_models import EditRemoveProdutcsWindow
 from gui.pos_custom_widgets import(STYLE, MessageWindow, SquareOptionsButton, PaymentSectionButton,
                                    FONT_TYPE, RoundedComboBox, RoundedLeftLineEdit, HighOptionsButton, CategorySectionButton,
-                                   POSDialog)
+                                   POSDialog, ReadOnlyItemModel, TableSelectionUpButton, TableSelectionDownButton,FavoritesAddButton,
+                                   FavoritesRemButton)
 from database.pos_crud_and_validations import (get_users_usernames, check_if_admin_by_username, verify_hashed_password,
                                                get_user_password_by_username, create_hash_password, get_categories_list,
-                                               get_products_from_category)
+                                               get_products_from_category, get_products_for_favorite_listing, get_favorite_marked_products,
+                                               change_favorite_product_stauts)
 from database.mysql_engine import session
     
 class POSMainWindow(QMainWindow):
@@ -82,7 +80,8 @@ class POSMainWindow(QMainWindow):
         self.sales_section_layout = QHBoxLayout()
         self.payment_section_layout = QHBoxLayout()
                 
-        self.options_section_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.options_section_layout.setContentsMargins(5, 0, 5, 0)
+        self.options_section_layout.setAlignment(Qt.AlignmentFlag.AlignHorizontal_Mask)
         categoriesBox.setLayout(self.categories_section_layout)
         productsBox.setLayout(self.products_section_layout)
         optionsBox.setLayout(self.options_section_layout)
@@ -104,10 +103,14 @@ class POSMainWindow(QMainWindow):
         self.set_payment_section()
         
     def set_options_section(self):
-        user_button = SquareOptionsButton('Utilizador')        
+        user_button = SquareOptionsButton('Utilizador')
+        favorites_button = SquareOptionsButton('Favoritos')
+        
         self.options_section_layout.addWidget(user_button)
+        self.options_section_layout.addWidget(favorites_button)
         
         user_button.clicked.connect(self.set_login_widget)
+        favorites_button.clicked.connect(lambda: self.open_qdialog(FavoritesWindow()))
         
     def set_login_widget(self):
         self.baseWidget.setCurrentIndex(1)
@@ -392,4 +395,234 @@ class POSMainWindow(QMainWindow):
         open_qdialog = new_window
         open_qdialog.qdialog_signal.connect(self.update_window_on_signal)
         open_qdialog.exec()
+        
+class FavoritesWindow(POSDialog):
+    def set_widgets_placements(self):
+        self.setGeometry(200, 200, 500, 700)
+        self.setWindowTitle('Editar Favoritos')
+        
+        edit_favorites_layout = QVBoxLayout()
+        self.setLayout(edit_favorites_layout)
+        favorites_labels_layout = QHBoxLayout()
+        favorites_tables_layout = QGridLayout()
+        favorites_close_button_layout = QHBoxLayout()
+        edit_favorites_layout.addLayout(favorites_labels_layout)
+        edit_favorites_layout.addLayout(favorites_tables_layout)
+        edit_favorites_layout.addLayout(favorites_close_button_layout)
+        
+        edit_favorites_category_label = QLabel('Categoria:')
+        self.edit_favorites_category_combo_box = RoundedComboBox()
+        self.select_product_table = QTableView()
+        self.products_selection_up_button = TableSelectionUpButton()
+        self.products_selection_down_button = TableSelectionDownButton()
+        self.remove_favorite_button = FavoritesRemButton('')
+        self.add_favorite_button = FavoritesAddButton('')
+        self.favorites_table = QTableView()
+        self.favorites_selection_up_button = TableSelectionUpButton()
+        self.favorites_selection_down_button = TableSelectionDownButton()
+        favorites_close_button = HighOptionsButton('Fechar')
+        
+        self.edit_favorites_category_combo_box.setFixedWidth(240)
+        
+        favorites_labels_layout.setContentsMargins(30, 0, 10, 0)
+        self.select_product_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        self.favorites_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        
+        category_list = get_categories_list(session)
+        for category in category_list:
+            self.edit_favorites_category_combo_box.addItem(category)
+            
+        self.edit_favorites_category_combo_box.setCurrentIndex(-1)
+        
+        
+        self.products_row_number = 0
+        self.favorites_row_number = 0
+        
+        favorites_labels_layout.addWidget(edit_favorites_category_label, Qt.AlignmentFlag.AlignRight)
+        favorites_labels_layout.addWidget(self.edit_favorites_category_combo_box, Qt.AlignmentFlag.AlignLeft)
+        
+        favorites_tables_layout.addWidget(self.select_product_table, 0, 0, 2, 4)
+        favorites_tables_layout.addWidget(self.products_selection_up_button, 0, 4, Qt.AlignmentFlag.AlignVCenter)
+        favorites_tables_layout.addWidget(self.products_selection_down_button, 1, 4, Qt.AlignmentFlag.AlignVCenter)
+        favorites_tables_layout.addWidget(self.remove_favorite_button, 2, 1, Qt.AlignmentFlag.AlignRight)
+        favorites_tables_layout.addWidget(self.add_favorite_button, 2, 2, Qt.AlignmentFlag.AlignLeft)
+        favorites_tables_layout.addWidget(self.favorites_table, 3, 0, 2, 4)
+        favorites_tables_layout.addWidget(self.favorites_selection_up_button, 3, 4, Qt.AlignmentFlag.AlignVCenter)
+        favorites_tables_layout.addWidget(self.favorites_selection_down_button, 4, 4, Qt.AlignmentFlag.AlignVCenter)
+        
+        favorites_close_button_layout.addWidget(favorites_close_button, Qt.AlignmentFlag.AlignHCenter)
+        
+        self.edit_favorites_category_combo_box.currentIndexChanged.connect(self.set_products_table_model)
+        
+        self.products_selection_up_button.clicked.connect(lambda: self.select_upper_row(self.select_product_table, self.products_row_number))
+        self.products_selection_down_button.clicked.connect(lambda: self.select_down_row(self.select_product_table, self.products_row_number))
+        
+        self.remove_favorite_button.clicked.connect(self.set_favorite_stauts)
+        self.add_favorite_button.clicked.connect(self.set_favorite_stauts)
+        
+        self.favorites_selection_up_button.clicked.connect(lambda: self.select_upper_row(self.favorites_table, self.favorites_row_number))
+        self.favorites_selection_down_button.clicked.connect(lambda: self.select_down_row(self.favorites_table, self.favorites_row_number))
+        
+        self.select_product_table.clicked.connect(lambda: (self.favorites_table.clearSelection(), self.enable_disable_add_rem_buttons()))
+        self.favorites_table.clicked.connect(lambda: (self.select_product_table.clearSelection(), self.enable_disable_add_rem_buttons()))
+        
+        favorites_close_button.clicked.connect(self.close)
+        
+        self.set_favorites_table_model()
+        
+    def set_products_table_model(self):
+        self.products_table_model = ReadOnlyItemModel()        
+        self.category = self.edit_favorites_category_combo_box.currentText().strip()
+        
+        headers = ['Produto', 'Preço', 'IVA', 'Favorito']
+        self.product_contents = get_products_for_favorite_listing(session, self.category)
+        
+        self.products_row_number = len(self.product_contents.keys())
+        
+        self.products_table_model.setColumnCount(4)
+        self.products_table_model.setRowCount(self.products_row_number)
+        
+        self.products_table_model.setHorizontalHeaderLabels(headers)
+        
+        row = 0
+        for key in self.product_contents.keys():
+            for col in range(4):
+                item = QStandardItem(self.product_contents[key][col])
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.products_table_model.setItem(row, col, item)
+            row += 1
+                
+        self.select_product_table.setModel(self.products_table_model)
+        self.select_product_table.verticalHeader().hide()
+        self.select_product_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        
+        for col in range(len(headers)):
+            self.select_product_table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+
+        self.select_product_table.show()
+
+    def set_favorites_table_model(self):
+        self.favorites_table_model = ReadOnlyItemModel()        
+        
+        headers = ['Produto', 'Preço', 'IVA', 'Favorito']
+        self.favorite_contents = get_favorite_marked_products(session)
+        
+        self.favorites_row_number = len(self.favorite_contents.keys())
+        
+        self.favorites_table_model.setColumnCount(4)
+        self.favorites_table_model.setRowCount(self.products_row_number)
+        
+        self.favorites_table_model.setHorizontalHeaderLabels(headers)
+        
+        row = 0
+        for key in self.favorite_contents.keys():
+            for col in range(4):
+                item = QStandardItem(self.favorite_contents[key][col])
+                item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                self.favorites_table_model.setItem(row, col, item)
+            row += 1
+                
+        self.favorites_table.setModel(self.favorites_table_model)
+        self.favorites_table.verticalHeader().hide()
+        self.favorites_table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        
+        for col in range(len(headers)):
+            self.favorites_table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
+
+        self.favorites_table.show()
+        
+    def select_upper_row(self, table_view: QTableView, row_number: int):
+        if table_view == self.select_product_table:
+            self.favorites_table.clearSelection()
+        else:
+            self.select_product_table.clearSelection()
+        
+        row = self.get_selected_rows()
+        if row or row == 0:
+            if row == 0:
+                row = row_number - 1
+            else:
+                row -= 1
+            table_view.selectRow(row)
+            self.enable_disable_add_rem_buttons()
+        else:
+            table_view.selectRow(row_number - 1)
+            self.enable_disable_add_rem_buttons()
+
+    def select_down_row(self, table_view: QTableView, row_number: int):
+        if table_view == self.select_product_table:
+            self.favorites_table.clearSelection()
+        else:
+            self.select_product_table.clearSelection()
+        
+        row = self.get_selected_rows()
+        if row or row == 0:
+            if row == row_number - 1:
+                row = 0
+            else:
+                row += 1   
+            table_view.selectRow(row)
+            self.enable_disable_add_rem_buttons()
+        else:
+            table_view.selectRow(0)
+            self.enable_disable_add_rem_buttons()
+                 
+    def get_selected_rows(self):
+        if self.select_product_table.model() and self.select_product_table.selectionModel().selectedRows():
+            rows = self.select_product_table.selectionModel().selectedRows()
+        else:
+            rows = self.favorites_table.selectionModel().selectedRows()
+            
+        if rows:
+            index = rows[0]
+            row = index.row()
+            return row
+        else:
+            return None
+        
+    def enable_disable_add_rem_buttons(self):
+        if self.favorites_table.model() and self.favorites_table.selectionModel().selectedRows():
+            rows = self.favorites_table.selectionModel().selectedRows()
+            if rows:
+                self.add_favorite_button.setEnabled(False)
+                self.remove_favorite_button.setEnabled(True)    
+                
+        elif self.select_product_table.model() is not None and self.select_product_table.selectionModel().selectedRows():
+            rows = self.select_product_table.selectionModel().selectedRows()
+            if rows:
+                row = rows[0].row()
+                value_index = self.products_table_model.index(row, 3)
+                check = self.products_table_model.itemFromIndex(value_index).text()
+            if check:
+                self.add_favorite_button.setEnabled(False)
+                self.remove_favorite_button.setEnabled(True)
+            else:
+                self.add_favorite_button.setEnabled(True)
+                self.remove_favorite_button.setEnabled(False)
+                    
+    def set_favorite_stauts(self):
+        row = self.get_selected_rows()
+        if row or row == 0:
+            if self.select_product_table.model() and self.select_product_table.selectionModel().selectedRows():
+                name = self.products_table_model.index(row, 0).data()
+                for key, product in self.product_contents.items():
+                    if product[0] == name:
+                        prod_id = key
+                        if self.product_contents[key][3]:
+                            set_favorite = False
+                        else:
+                            set_favorite = True
+                        change_favorite_product_stauts(session, prod_id, set_favorite)
+                        self.set_products_table_model()
+                        self.set_favorites_table_model()
+                        
+            else:
+                name = self.favorites_table_model.index(row, 0).data()
+                for key, product in self.favorite_contents.items():
+                    if product[0] == name:
+                        prod_id = key
+                        change_favorite_product_stauts(session, prod_id, False)
+                        self.set_products_table_model()
+                        self.set_favorites_table_model()
+
         

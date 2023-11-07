@@ -121,10 +121,7 @@ def get_amount_products_in_category(db_session: Session, category: str, active_c
         
     db_session.close()
     return product_items
-    
-
-    
-    
+            
 ###
 ###
 ### IVA
@@ -487,6 +484,50 @@ def get_products_from_category(db_session: Session, category: str):
         products_dict[product.prod_id] = product.name
         
     return products_dict
+
+def get_products_for_favorite_listing(db_session: Session, category: str):
+    category_id = get_category_id_by_name(db_session, category)
+    products = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ativo == True).order_by(Produto.ordem).all()
+    
+    product_items = {}
+    
+    for prod in products:
+        iva_value = str(get_iva_value_by_id(db_session, prod.iva_id)) + '%'
+        if prod.favorite:
+            favorite_mark = 'X'
+        else:
+            favorite_mark = None
+        product_items[prod.prod_id] = [prod.name ,str(prod.price), iva_value, favorite_mark]
+        
+    db_session.close()  
+    return product_items
+    
+def get_favorite_marked_products(db_session: Session):
+    products = db_session.query(Produto).filter_by(favorite = True).order_by(Produto.ordem).all()
+    
+    product_items = {}
+    
+    for prod in products:
+        iva_value = str(get_iva_value_by_id(db_session, prod.iva_id)) + '%'
+        if prod.favorite:
+            favorite_mark = 'X'
+        else:
+            favorite_mark = None
+        product_items[prod.prod_id] = [prod.name ,str(prod.price), iva_value, favorite_mark]
+    
+    db_session.close()
+    return product_items
+    
+def change_favorite_product_stauts(db_session: Session, product_id: int, set_favorite: bool):
+    product = db_session.query(Produto).filter_by(prod_id = product_id).order_by(Produto.ordem).first()
+    if set_favorite:
+        product.favorite = True
+    else:
+        product.favorite = False
+
+    db_session.merge(product)
+    db_session.commit()
+    db_session.close()
         
 # ###
 ###

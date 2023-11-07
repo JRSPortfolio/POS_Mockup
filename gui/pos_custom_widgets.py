@@ -436,10 +436,8 @@ class SquareOptionsButton(RoundedButton):
     def __init__(self, *args):
         super(SquareOptionsButton, self).__init__(*args)
         self.setFont(FONT_TYPE_BOLD)
-        self.setFixedSize(75, 75)
-        
+        self.setFixedSize(78, 78)
         self.args = args
-        
         self.setText('')
         
         layout = QHBoxLayout()
@@ -448,6 +446,18 @@ class SquareOptionsButton(RoundedButton):
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label)
         self.setLayout(layout)
+        
+class FavoritesAddButton(SquareOptionsButton):
+    def __init__(self, *args):
+        super(FavoritesAddButton, self).__init__(*args)
+        self.setIcon(QIcon("assets//plus_icon.png"))
+        self.setFixedSize(50, 50)
+        
+class FavoritesRemButton(SquareOptionsButton):
+    def __init__(self, *args):
+        super(FavoritesRemButton, self).__init__(*args)
+        self.setIcon(QIcon("assets//minus_icon.png"))
+        self.setFixedSize(50, 50)
         
 class PaymentSectionButton(RoundedButton):
     def __init__(self, *args):

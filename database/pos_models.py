@@ -33,6 +33,7 @@ class Produto(Base):
     ordem = Column(String(255), nullable = True, unique = True)
     ativo = Column(Boolean, nullable = False)
     description = Column(String(255), nullable = True)
+    favorite = Column(Boolean, nullable = False, default = False)
     
     categoria = relationship('Categoria', back_populates = 'produto')
     iva_tipo = relationship('TipoIVA', back_populates = 'produto')
