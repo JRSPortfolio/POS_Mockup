@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QLabel, QStackedWidget,
-                             QFormLayout, QGridLayout, QCheckBox, QTableView, QHeaderView)
+                             QFormLayout, QGridLayout, QCheckBox, QTableView, QHeaderView, QSpinBox)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QResizeEvent, QStandardItem
 
@@ -9,12 +9,14 @@ from gui.pos_edit_models import EditRemoveProdutcsWindow
 from gui.pos_custom_widgets import(STYLE, MessageWindow, SquareOptionsButton, PaymentSectionButton,
                                    FONT_TYPE, RoundedComboBox, RoundedLeftLineEdit, HighOptionsButton, CategorySectionButton,
                                    POSDialog, ReadOnlyItemModel, TableSelectionUpButton, TableSelectionDownButton,FavoritesAddButton,
-                                   FavoritesRemButton)
+                                   FavoritesRemButton, SmallOptionsButton, TinyAddButton, TinyRemButton, LargeThinButton,
+                                   SalesTotalFrame, ProductListingUpButton, ProductListingDownButton)
 from database.pos_crud_and_validations import (get_users_usernames, check_if_admin_by_username, verify_hashed_password,
                                                get_user_password_by_username, create_hash_password, get_categories_list,
                                                get_products_from_category, get_products_for_favorite_listing, get_favorite_marked_products,
-                                               change_favorite_product_stauts)
+                                               change_favorite_product_stauts, get_favorite_products, get_product_sale_fields)
 from database.mysql_engine import session
+from decimal import Decimal as dec
     
 class POSMainWindow(QMainWindow):
     def __init__(self):
@@ -62,10 +64,10 @@ class POSMainWindow(QMainWindow):
         paymentBox = QGroupBox("Pagamento")
         
         optionsBox.setFixedHeight(120)
-        paymentBox.setFixedSize(390, 120)
+        paymentBox.setFixedSize(400, 120)
         categoriesBox.setMinimumHeight(150)
         categoriesBox.setMaximumHeight(250)
-        salesBox.setFixedWidth(390)
+        salesBox.setFixedWidth(400)
         
         
         self.leftLayout.addWidget(categoriesBox)
@@ -75,32 +77,104 @@ class POSMainWindow(QMainWindow):
         self.rightLayout.addWidget(paymentBox)
         
         self.categories_section_layout = QVBoxLayout()
-        self.products_section_layout = QGridLayout()
+        self.products_section_layout = QVBoxLayout()
         self.options_section_layout = QHBoxLayout()
-        self.sales_section_layout = QHBoxLayout()
+        self.sales_section_layout = QVBoxLayout()
         self.payment_section_layout = QHBoxLayout()
                 
-        self.options_section_layout.setContentsMargins(5, 0, 5, 0)
-        self.options_section_layout.setAlignment(Qt.AlignmentFlag.AlignHorizontal_Mask)
         categoriesBox.setLayout(self.categories_section_layout)
         productsBox.setLayout(self.products_section_layout)
         optionsBox.setLayout(self.options_section_layout)
         salesBox.setLayout(self.sales_section_layout)
         paymentBox.setLayout(self.payment_section_layout)
-        
+                
         self.categories_header_layout = QGridLayout()
         self.categories_buttons_layout = QGridLayout()
+        self.products_buttons_layout = QGridLayout()
+        self.product_quantities_layout = QHBoxLayout()
+        self.sales_listing_layout = QHBoxLayout()
+        self.sales_table_items_layout = QVBoxLayout()
+        self.sales_table_button_layout = QVBoxLayout()
+        self.sales_total_layout = QHBoxLayout()
+        self.sales_buttons_layout = QHBoxLayout()
         
         self.categories_section_layout.addLayout(self.categories_header_layout)
         self.categories_section_layout.addLayout(self.categories_buttons_layout)
+        self.products_section_layout.addLayout(self.products_buttons_layout)
+        self.products_section_layout.addLayout(self.product_quantities_layout)
+        self.sales_section_layout.addLayout(self.sales_listing_layout)
+        self.sales_section_layout.addLayout(self.sales_total_layout)
+        self.sales_section_layout.addLayout(self.sales_buttons_layout)
         
+        self.sales_listing_layout.addLayout(self.sales_table_items_layout)
+        self.sales_listing_layout.addLayout(self.sales_table_button_layout)
+        
+        self.sales_total_value = SalesTotalFrame()
+        self.sales_total_layout.addWidget(self.sales_total_value)
+                
         self.set_categories()
+                
+        self.set_options_section()
+        self.set_payment_section()
+        self.set_sales_section()
         
         self.mainWidgetsLayout.setStretchFactor(self.leftLayout, 4)
         self.mainWidgetsLayout.setStretchFactor(self.rightLayout, 2)
         
-        self.set_options_section()
-        self.set_payment_section()
+    def set_sales_section(self):
+        self.set_sales_table()
+                
+        self.change_product_quantity = LargeThinButton('Alterar Quantidade')
+        self.remove_single_product = TinyRemButton('')
+        self.add_single_product = TinyAddButton('')
+        self.remove_product = SmallOptionsButton('Remover')
+        self.clean_sales_list = SmallOptionsButton('Limpar')
+        
+        self.sales_buttons_layout.addWidget(self.change_product_quantity, alignment = Qt.AlignmentFlag.AlignHCenter)
+        self.sales_buttons_layout.addWidget(self.remove_single_product, alignment = Qt.AlignmentFlag.AlignHCenter)
+        self.sales_buttons_layout.addWidget(self.add_single_product, alignment = Qt.AlignmentFlag.AlignLeft)
+        self.sales_buttons_layout.addWidget(self.remove_product, alignment = Qt.AlignmentFlag.AlignHCenter)
+        self.sales_buttons_layout.addWidget(self.clean_sales_list, alignment = Qt.AlignmentFlag.AlignRight)
+                
+        self.sales_buttons_layout.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        
+        self.change_product_quantity.clicked.connect(self.open_change_quantity_window)
+        self.remove_single_product.clicked.connect(self.remove_single_quantity_from_sales)
+        self.add_single_product.clicked.connect(lambda: self.add_product_quantity_in_sales_table(1))
+        self.remove_product.clicked.connect(self.remove_product_from_sales)
+        self.clean_sales_list.clicked.connect(lambda: print('clean'))
+        
+        self.upper_product_selection = ProductListingUpButton()
+        self.down_product_selection = ProductListingDownButton()
+        
+        self.sales_table_button_layout.addWidget(self.upper_product_selection, alignment = Qt.AlignmentFlag.AlignBottom)
+        self.sales_table_button_layout.addWidget(self.down_product_selection, alignment = Qt.AlignmentFlag.AlignTop)
+        
+        self.upper_product_selection.clicked.connect(self.select_upper_product)
+        self.down_product_selection.clicked.connect(self.select_down_product)
+        
+    def set_sales_table(self):
+        self.sales_table_view = QTableView()
+        self.sales_table_view.setSelectionMode(QTableView.SelectionMode.SingleSelection)
+        self.sales_table_model = ReadOnlyItemModel()
+        
+        headers = ['Produto', 'IVA', 'Qtd.', 'Preço']
+        
+        self.sales_table_model.setColumnCount(4)
+        self.sales_table_model.setHorizontalHeaderLabels(headers)
+                
+        self.sales_table_view.setModel(self.sales_table_model)
+        self.sales_table_view.verticalHeader().hide()
+        self.sales_table_view.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
+        
+        self.sales_table_view.setColumnWidth(0, 180)
+        self.sales_table_view.setColumnWidth(1, 50)
+        self.sales_table_view.setColumnWidth(2, 50)
+        self.sales_table_view.setColumnWidth(3, 72)
+        
+        self.sales_table_items_layout.addWidget(self.sales_table_view)
+        
+        self.sales_table_view.show()
         
     def set_options_section(self):
         user_button = SquareOptionsButton('Utilizador')
@@ -108,6 +182,8 @@ class POSMainWindow(QMainWindow):
         
         self.options_section_layout.addWidget(user_button)
         self.options_section_layout.addWidget(favorites_button)
+        
+        self.options_section_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         user_button.clicked.connect(self.set_login_widget)
         favorites_button.clicked.connect(lambda: self.open_qdialog(FavoritesWindow()))
@@ -128,9 +204,11 @@ class POSMainWindow(QMainWindow):
         self.favorites_button = CategorySectionButton('Favoritos')
         self.multiple_categories_check_box = QCheckBox('Selecionar Mais que uma Categoria')
         
+        self.favorites_button.setCheckable(True)
+        
         self.categories_header_layout.addWidget(self.favorites_button, 0, 0)
         self.categories_header_layout.addWidget(self.multiple_categories_check_box, 0, 1, Qt.AlignmentFlag.AlignRight)
-        self.favorites_button.clicked.connect(lambda: print('Favorites click'))
+        self.favorites_button.clicked.connect(lambda _, category = 'favorites': self.select_categories(category))
         self.multiple_categories_check_box.stateChanged.connect(self.multiple_categories_set_check)
                                             
     def clean_categories(self, max_cols: int):
@@ -160,7 +238,7 @@ class POSMainWindow(QMainWindow):
         except AttributeError:
             checked_categories = None
         
-        self.categories_buttons = {}
+        self.categories_buttons = {'favorites' : self.favorites_button}
         row = 1
         col = 0
         for category in categories_list:
@@ -188,58 +266,206 @@ class POSMainWindow(QMainWindow):
         if not self.multiple_categories_check_box.isChecked():
             for category in self.categories_buttons.keys():
                 self.categories_buttons[category].setChecked(False)
-                                            
+                                                 
     def select_categories(self, category: str):
-        cols = self.products_section_layout.columnCount()
-        self.clean_products(cols)
+        cols = self.products_buttons_layout.columnCount()
+        self.clean_product_buttons(cols)
         
         if not self.multiple_categories_check_box.isChecked():
             for button in self.categories_buttons.keys():
                 if button != category:
                     self.categories_buttons[button].setChecked(False)
+            
                     
         self.set_products_positions(6)
+        
+    def set_products_quantities_options(self):
+        quantity_label = QLabel('Quantidade:')
+        self.product_quantity_spin_box = QSpinBox()
+        
+        self.product_quantity_spin_box.setFixedWidth(50)
+        self.product_quantity_spin_box.setMinimum(1)
+        self.product_quantity_spin_box.setValue(1)
+                
+        self.product_quantities_layout.addWidget(quantity_label)
+        self.product_quantities_layout.addWidget(self.product_quantity_spin_box)
+        
+        self.product_quantities_layout.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignLeft)
+        
+    def clean_product_quantities_options(self):
+        while self.product_quantities_layout.count() > 0:
+            item = self.product_quantities_layout.takeAt(0)
+            if item:
+                widget = item.widget()
+                self.product_quantities_layout.removeItem(item)
+                widget.deleteLater()
          
-    def set_products_positions(self, max_cols: int):
+    def set_products_positions(self, max_cols: int): 
         row = 0
         col = 0    
         
         self.products_listing_button = {}
-        products_dict = {}
         
-        for category in self.categories_buttons.keys():
-            if self.categories_buttons[category].isChecked():
-                products_dict[category] = get_products_from_category(session, category)
-                if col != 0:
+        if self.categories_buttons['favorites'].isChecked():
+            favorites_dict = get_favorite_products(session)
+            if col != 0:
+                col = 0
+                row += 1
+                
+            for prod_id in favorites_dict.keys():
+                button = SquareOptionsButton(f'{favorites_dict[prod_id][0]} ({favorites_dict[prod_id][1]}€)')
+                self.products_listing_button[prod_id] = button
+                self.products_buttons_layout.addWidget(self.products_listing_button[prod_id], row, col)
+                self.products_listing_button[prod_id].clicked.connect(lambda _, prod_id = prod_id: self.add_product_to_sale_table(prod_id))
+                col += 1
+                if col == max_cols:
                     col = 0
                     row += 1
-                
-                for product in products_dict[category].keys():
-                    button = SquareOptionsButton(products_dict[category][product])
-                    self.products_listing_button[product] = button
-                    self.products_section_layout.addWidget(self.products_listing_button[product], row, col)
-                    self.products_listing_button[product].clicked.connect(lambda _, category = category, product = product: print(f'{category} -- {products_dict[category][product]}'))
-                    col += 1
-                    if col == max_cols:
+    
+        products_dict = {}
+        for category in self.categories_buttons.keys():
+            if category != 'favorites':
+                if self.categories_buttons[category].isChecked():
+                    products_dict[category] = get_products_from_category(session, category)
+                    if col != 0:
                         col = 0
                         row += 1
+                    
+                    for prod_id in products_dict[category].keys():
+                        if prod_id not in self.products_listing_button.keys():
+                            button = SquareOptionsButton(f'{products_dict[category][prod_id][0]} ({products_dict[category][prod_id][1]}€)')
+                            self.products_listing_button[prod_id] = button
+                            self.products_buttons_layout.addWidget(self.products_listing_button[prod_id], row, col)
+                            self.products_listing_button[prod_id].clicked.connect(lambda _, prod_id = prod_id: self.add_product_to_sale_table(prod_id))
+                            col += 1
+                            if col == max_cols:
+                                col = 0
+                                row += 1
         
-    def clean_products(self, max_cols: int):
-        existing_cols = self.products_section_layout.columnCount()
-        for row in range(self.products_section_layout.rowCount()):
+        if self.product_quantities_layout.count() == 0 and self.products_listing_button:
+            self.set_products_quantities_options()
+        elif not self.products_listing_button:
+            self.clean_product_quantities_options()
+            
+    def add_product_to_sale_table(self, prod_id: int):
+        if self.sales_table_model.rowCount() == 0:
+            self.transaction_products = []
+        
+        product = get_product_sale_fields(session, prod_id)
+        product[2] += self.product_quantity_spin_box.value()
+        product.append(prod_id)
+        self.transaction_products.append(product)
+        
+        total_price = str(dec(product[2]) * product[3])
+        
+        row_items = [QStandardItem(product[0]), QStandardItem(str(product[1])), QStandardItem(str(product[2])), QStandardItem(total_price)]
+        
+        for item in row_items[1:]:
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.sales_table_model.appendRow(row_items)
+        
+        self.product_quantity_spin_box.setValue(1)
+        
+        self.get_total_values()
+        
+    def remove_single_quantity_from_sales(self):
+        row = self.get_selected_sales_listing_row()
+        if row or row == 0:
+            if self.transaction_products[row][2] > 1:
+                self.transaction_products[row][2] -= 1
+                
+                col_index = self.sales_table_view.selectedIndexes()
+                self.sales_table_model.setData(col_index[2], self.transaction_products[row][2], Qt.ItemDataRole.EditRole)
+                total_price = str(self.transaction_products[row][2] * self.transaction_products[row][3])
+                self.sales_table_model.setData(col_index[3], total_price, Qt.ItemDataRole.EditRole)
+                
+                self.get_total_values()
+            else:
+                self.remove_product_from_sales()
+                            
+    def remove_product_from_sales(self):
+        row = self.get_selected_sales_listing_row()
+        self.sales_table_model.removeRow(row)
+        self.transaction_products.pop(row)
+        self.get_total_values()
+        
+        
+    def add_product_quantity_in_sales_table(self, quantity: int):
+        row = self.get_selected_sales_listing_row()
+        if row:
+            self.transaction_products[row][2] += quantity
+            
+            col_index = self.sales_table_view.selectedIndexes()
+            self.sales_table_model.setData(col_index[2], self.transaction_products[row][2], Qt.ItemDataRole.EditRole)
+            total_price = str(self.transaction_products[row][2] * self.transaction_products[row][3])
+            self.sales_table_model.setData(col_index[3], total_price, Qt.ItemDataRole.EditRole)
+
+            self.get_total_values()
+            
+    def select_upper_product(self):
+        row = self.get_selected_sales_listing_row()
+        row_number = self.sales_table_model.rowCount()
+            
+        if row:
+            if row == 0:
+                row = row_number - 1
+            else:
+                row -= 1
+            self.sales_table_view.selectRow(row)
+        else:
+            self.sales_table_view.selectRow(row_number - 1)
+                
+    def select_down_product(self):
+        row = self.get_selected_sales_listing_row()
+        if row or row == 0:
+            if row == self.sales_table_model.rowCount() - 1:
+                row = 0
+            else:
+                row += 1   
+            self.sales_table_view.selectRow(row)
+        else:
+            self.sales_table_view.selectRow(0)
+            
+    def get_selected_sales_listing_row(self):
+        index = self.sales_table_view.selectionModel().selectedRows()
+        if index:
+            row = index[0].row()
+            return row
+        else:
+            return None
+            
+    def get_total_values(self):
+        total = 0
+        for product in self.transaction_products:
+            total += (product[2] * product[3])
+
+        self.sales_total_value.update_value(total)
+        
+    def open_change_quantity_window(self):
+        row = self.get_selected_sales_listing_row()
+        if row or row == 0:
+            product = self.transaction_products[row][0]
+            quantity = self.transaction_products[row][2]
+            window = ChangeProductSaleQuantity(product, quantity)
+            self.open_qdialog(window)
+                                                          
+    def clean_product_buttons(self, max_cols: int):
+        existing_cols = self.products_buttons_layout.columnCount()
+        for row in range(self.products_buttons_layout.rowCount()):
             if max_cols < existing_cols:
                 for col in range(existing_cols):
-                    item = self.products_section_layout.itemAtPosition(row, col)
+                    item = self.products_buttons_layout.itemAtPosition(row, col)
                     if item:
                         widget = item.widget()
-                        self.products_section_layout.removeItem(item)
+                        self.products_buttons_layout.removeItem(item)
                         widget.deleteLater()
             else:
                 for col in range(max_cols):        
-                    item = self.products_section_layout.itemAtPosition(row, col)
+                    item = self.products_buttons_layout.itemAtPosition(row, col)
                     if item:
                         widget = item.widget()
-                        self.products_section_layout.removeItem(item)
+                        self.products_buttons_layout.removeItem(item)
                         widget.deleteLater()
                         
     def set_app_widget(self):
@@ -382,11 +608,13 @@ class POSMainWindow(QMainWindow):
         if self.categories_buttons_layout.columnCount() > 0:
             self.clean_categories(cat_max_cols)
             self.position_categories(cat_max_cols)
-            if self.products_section_layout.columnCount() > 0:
-                self.clean_products(product_max_cols)
+            if self.products_buttons_layout.columnCount() > 0:
+                self.clean_product_buttons(product_max_cols)
                 self.set_products_positions(product_max_cols)
         
-    def update_window_on_signal(self):
+    def update_window_on_signal(self, data):
+        if data:
+            print(data)
         cols = self.categories_buttons_layout.columnCount()
         self.clean_categories(cols)
         self.position_categories(cols)
@@ -395,6 +623,51 @@ class POSMainWindow(QMainWindow):
         open_qdialog = new_window
         open_qdialog.qdialog_signal.connect(self.update_window_on_signal)
         open_qdialog.exec()
+        
+class ChangeProductSaleQuantity(POSDialog):
+    def __init__(self, product: str, quantity: int, *args, **kwargs):
+        self.product = product
+        self.quantity = quantity
+        super(ChangeProductSaleQuantity, self).__init__(*args, **kwargs)
+
+    def set_widgets_placements(self):
+        self.setGeometry(200, 200, 300, 200)
+        self.setWindowTitle('Editar Quantidade')
+        
+        base_layout = QVBoxLayout()
+        self.setLayout(base_layout)
+        
+        quantity_items_layout = QGridLayout()
+        quantity_button_layout = QHBoxLayout()
+        base_layout.addLayout(quantity_items_layout)
+        base_layout.addLayout(quantity_button_layout)
+        
+        
+        quantity_product_label = QLabel(self.product)
+        quantity_amount_label = QLabel('Quantidade')
+        self.quantity_spin_box = QSpinBox()
+        self.quantity_change_button = HighOptionsButton('Alterar')
+        quantity_close_button = HighOptionsButton('Fechar')
+        
+        self.quantity_spin_box.setMinimum(0)
+        self.quantity_spin_box.setValue(self.quantity)
+        
+        quantity_items_layout.addWidget(quantity_product_label, 0, 0)
+        quantity_items_layout.addWidget(quantity_amount_label, 1, 0)
+        quantity_items_layout.addWidget(self.quantity_spin_box, 1, 1)
+        quantity_button_layout.addWidget(self.quantity_change_button)
+        quantity_button_layout.addWidget(quantity_close_button)
+        
+        self.quantity_change_button.clicked.connect(self.change_quantity)
+        quantity_close_button.clicked.connect(self.close)
+        
+    def change_quantity(self):
+        quantity = self.quantity_spin_box.value()
+        self.emit_signal(quantity)
+        self.close()
+        
+    def emit_signal(self, signal: int):
+        self.qdialog_signal.emit(signal)
         
 class FavoritesWindow(POSDialog):
     def set_widgets_placements(self):
@@ -424,7 +697,6 @@ class FavoritesWindow(POSDialog):
         
         self.edit_favorites_category_combo_box.setFixedWidth(240)
         
-        favorites_labels_layout.setContentsMargins(30, 0, 10, 0)
         self.select_product_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         self.favorites_table.setSelectionMode(QTableView.SelectionMode.SingleSelection)
         
@@ -438,8 +710,9 @@ class FavoritesWindow(POSDialog):
         self.products_row_number = 0
         self.favorites_row_number = 0
         
-        favorites_labels_layout.addWidget(edit_favorites_category_label, Qt.AlignmentFlag.AlignRight)
-        favorites_labels_layout.addWidget(self.edit_favorites_category_combo_box, Qt.AlignmentFlag.AlignLeft)
+        favorites_labels_layout.addWidget(edit_favorites_category_label)
+        favorites_labels_layout.addWidget(self.edit_favorites_category_combo_box)
+        favorites_labels_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         
         favorites_tables_layout.addWidget(self.select_product_table, 0, 0, 2, 4)
         favorites_tables_layout.addWidget(self.products_selection_up_button, 0, 4, Qt.AlignmentFlag.AlignVCenter)

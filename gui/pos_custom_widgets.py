@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-                             QWidget, QComboBox, QCheckBox)
+                             QWidget, QComboBox, QCheckBox, QFrame)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QFont, QIcon, QStandardItemModel
 from database.mysql_engine import session
@@ -12,7 +12,7 @@ FONT_TYPE_BOLD.setWeight(QFont.Weight.Bold)
 STYLE = get_stylesheet()
 
 class POSDialog(QDialog):
-    qdialog_signal = pyqtSignal()
+    qdialog_signal = pyqtSignal(int)
     def __init__(self, *args, **kwargs):
         super(POSDialog, self).__init__(*args, **kwargs)
         self.setFont(FONT_TYPE)
@@ -459,6 +459,18 @@ class FavoritesRemButton(SquareOptionsButton):
         self.setIcon(QIcon("assets//minus_icon.png"))
         self.setFixedSize(50, 50)
         
+class TinyAddButton(SquareOptionsButton):
+    def __init__(self, *args):
+        super(TinyAddButton, self).__init__(*args)
+        self.setIcon(QIcon("assets//plus_icon.png"))
+        self.setFixedSize(22, 22)
+        
+class TinyRemButton(SquareOptionsButton):
+    def __init__(self, *args):
+        super(TinyRemButton, self).__init__(*args)
+        self.setIcon(QIcon("assets//minus_icon.png"))
+        self.setFixedSize(22, 22)
+        
 class PaymentSectionButton(RoundedButton):
     def __init__(self, *args):
         super(PaymentSectionButton, self).__init__(*args)
@@ -493,6 +505,22 @@ class CategorySectionButton(RoundedButton):
         self.setFont(FONT_TYPE_BOLD)
         self.setFixedSize(120, 32)
         
+class ProductListingUpButton(RoundedButton):
+    def __init__(self, *args):
+        super(ProductListingUpButton, self).__init__(*args)
+        self.setFont(FONT_TYPE_BOLD)
+        self.setFixedSize(20, 75)
+        self.setIcon(QIcon("assets//move_up_arrow.png"))
+        self.setIconSize(QSize(20, 70))
+        
+class ProductListingDownButton(TableSelectionUpButton):
+    def __init__(self, *args):
+        super(ProductListingDownButton, self).__init__(*args)
+        self.setFont(FONT_TYPE_BOLD)
+        self.setFixedSize(20, 75)
+        self.setIcon(QIcon("assets//move_down_arrow.png"))
+        self.setIconSize(QSize(20, 70))
+        
 class RoundedCenterLineEdit(QLineEdit):
     def __init__(self, *args, **kwargs):
         super(RoundedCenterLineEdit, self).__init__(*args, **kwargs)
@@ -513,10 +541,6 @@ class RoundedComboBox(QComboBox):
         self.setFixedHeight(22)
         
 class ReadOnlyItemModel(QStandardItemModel):
-    # def __init__(self, *args, **kwargs):
-    #     super(ReadOnlyItemModel, self).__init__(*args, **kwargs)
-    #     self.set_selection()
-        
     def flags(self, index):
         flags = super().flags(index)
         flags &= ~Qt.ItemFlag.ItemIsEditable
@@ -526,6 +550,28 @@ class MarginCheckBox(QCheckBox):
     def __init__(self, *args, **kwargs):
         super(MarginCheckBox, self).__init__(*args, **kwargs)
         
+class SalesTotalFrame(QFrame):
+    def __init__(self, value = '        ', *args, **kwargs):
+        super(SalesTotalFrame, self).__init__(*args, **kwargs)
+        self.setFont(FONT_TYPE_BOLD)
+        self.title = 'Total:'
+        self.value = value
+        
+        self.title_label = QLabel(self.title)
+        self.value_label = QLabel(f'{self.value}€')
+                
+        self.widget_layout = QHBoxLayout()
+        
+        self.widget_layout.addWidget(self.title_label)
+        self.widget_layout.addWidget(self.value_label, alignment = Qt.AlignmentFlag.AlignRight)
+
+        self.setLayout(self.widget_layout)
+        
+    def update_value(self, value: dec):
+        value = str(value)
+        self.value_label.setText(f'{value}€')
+        
+                            
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
     open_qdialog.exec()

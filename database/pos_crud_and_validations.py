@@ -481,13 +481,24 @@ def get_products_from_category(db_session: Session, category: str):
     
     products_dict = {}
     for product in products:
-        products_dict[product.prod_id] = product.name
-        
+        products_dict[product.prod_id] = [product.name, product.price]
+    
+    db_session.close()   
+    return products_dict
+
+def get_favorite_products(db_session: Session):
+    products = db_session.query(Produto).filter(Produto.favorite).order_by(Produto.cat_id).all()
+    
+    products_dict = {}
+    for product in products:
+        products_dict[product.prod_id] = [product.name, product.price]
+    
+    db_session.close()
     return products_dict
 
 def get_products_for_favorite_listing(db_session: Session, category: str):
     category_id = get_category_id_by_name(db_session, category)
-    products = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ativo == True).order_by(Produto.ordem).all()
+    products = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ativo == True).order_by(Produto.cat_id).all()
     
     product_items = {}
     
@@ -503,7 +514,7 @@ def get_products_for_favorite_listing(db_session: Session, category: str):
     return product_items
     
 def get_favorite_marked_products(db_session: Session):
-    products = db_session.query(Produto).filter_by(favorite = True).order_by(Produto.ordem).all()
+    products = db_session.query(Produto).filter_by(favorite = True).order_by(Produto.cat_id).all()
     
     product_items = {}
     
@@ -519,7 +530,7 @@ def get_favorite_marked_products(db_session: Session):
     return product_items
     
 def change_favorite_product_stauts(db_session: Session, product_id: int, set_favorite: bool):
-    product = db_session.query(Produto).filter_by(prod_id = product_id).order_by(Produto.ordem).first()
+    product = db_session.query(Produto).filter_by(prod_id = product_id).first()
     if set_favorite:
         product.favorite = True
     else:
@@ -528,6 +539,15 @@ def change_favorite_product_stauts(db_session: Session, product_id: int, set_fav
     db_session.merge(product)
     db_session.commit()
     db_session.close()
+    
+def get_product_sale_fields(db_session: Session, product_id: int):
+    product = db_session.query(Produto).filter_by(prod_id = product_id).first()
+    iva_value = db_session.query(TipoIVA).filter_by(iva_id = product.iva_id).value(TipoIVA.iva_value)
+
+    product_items = [product.name, iva_value, 0, product.price]
+    
+    db_session.close()
+    return product_items
         
 # ###
 ###
