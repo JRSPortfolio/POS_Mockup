@@ -5,7 +5,7 @@ from database.pos_crud_and_validations import (get_categories_list, get_tipo_iva
                                get_amount_products_in_category, get_product_by_name_and_category,
                                edit_product_values, get_product_id_by_name_and_category,
                                validate_edit_product_inputs, reorder_products_order, remove_product_by_order_name,
-                               get_last_product_order)
+                               get_last_product_order, check_if_product_sold)
 from PyQt6.QtGui import QStandardItem
 from database.mysql_engine import session
 
@@ -144,6 +144,7 @@ class EditProductWindow(ProductWindow):
 
     def edit_db_product(self, values: dict, category: str):
         edit_product_values(session, values)
+        self.emit_signal()
         message_title = 'Produto Editado'
         message_content = [f'Editado produto {values['name']} em {category}']
         message_window = MessageWindow(message_title, message_content)
@@ -323,11 +324,12 @@ class EditRemoveProdutcsWindow(POSDialog):
                 index = self.table_model.index(order, 1)
                 switching_product = self.table_model.itemFromIndex(index).text()
                 new_order_name = self.category + str(order + 1)
-                                
+                              
             switch_product_order(session, switching_product, new_order_name, placeholder)
             switch_product_order(session, product, order_name, new_order_name)
             switch_product_order(session, switching_product, placeholder, order_name)
-
+            
+            self.emit_signal()
             return order
             
     def move_product_down(self):
@@ -351,6 +353,7 @@ class EditRemoveProdutcsWindow(POSDialog):
             switch_product_order(session, product, order_name, new_order_name)
             switch_product_order(session, switching_product, placeholder, order_name)
             
+            self.emit_signal()
             return order 
            
     def get_moving_values(self):
@@ -405,15 +408,22 @@ class EditRemoveProdutcsWindow(POSDialog):
                                             db_product['iva_type'], self.category, db_product['description'],
                                             ativo, categories_list, iva_list)
             open_new_window(edit_window)
+            self.emit_signal()
             self.set_table_model()
             
     def remove_product_row(self):
         order = self.get_selected_order()
         if order:
             order_name = self.category + order
-            remove_product_by_order_name(session, order_name)
-            reorder_products_order(session, self.category, int(order))
-            self.set_table_model()
+            message = check_if_product_sold(session, order_name)
+            if message:
+                window = MessageWindow('Remoção Inválida', message)
+                open_new_window(window)
+            else:
+                remove_product_by_order_name(session, order_name)
+                reorder_products_order(session, self.category, int(order))
+                self.emit_signal()
+                self.set_table_model()
     
     def unlock_ordering(self):
         if self.order_edit_button.isChecked():
@@ -443,7 +453,9 @@ class EditRemoveProdutcsWindow(POSDialog):
             switch_product_order(session, name, placeholder, order_name)
             placeholder += '_'
             order_num += 1
-            
+        
+        self.emit_signal()   
         self.set_table_model()
         
-        
+    def emit_signal(self):
+        self.qdialog_signal.emit('products')

@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGroupBox, QLabel, QStackedWidget,
                              QFormLayout, QGridLayout, QCheckBox, QTableView, QHeaderView, QSpinBox)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QResizeEvent, QStandardItem
 
 from gui.pos_add_models import (UserWindow, SetEditCategoryWindow, open_AddProductWindow,
@@ -153,6 +153,7 @@ class POSMainWindow(QMainWindow):
         self.upper_product_selection.clicked.connect(self.select_upper_product)
         self.down_product_selection.clicked.connect(self.select_down_product)
         
+        
     def set_sales_table(self):
         self.sales_table_view = QTableView()
         self.sales_table_view.setSelectionMode(QTableView.SelectionMode.SingleSelection)
@@ -173,9 +174,12 @@ class POSMainWindow(QMainWindow):
         self.sales_table_view.setColumnWidth(3, 72)
         
         self.sales_table_items_layout.addWidget(self.sales_table_view)
-        
         self.sales_table_view.show()
         
+    def mousePressEvent(self, event):
+        if not self.sales_table_view.rect().contains(self.sales_table_view.mapFromGlobal(event.globalPosition()).toPoint()):
+            self.sales_table_view.clearSelection()
+                
     def set_options_section(self):
         user_button = SquareOptionsButton('Utilizador')
         favorites_button = SquareOptionsButton('Favoritos')
@@ -369,17 +373,18 @@ class POSMainWindow(QMainWindow):
         
         self.get_total_values()
         
+    def update_product_sale_row(self, row):
+        col_index = self.sales_table_view.selectedIndexes()
+        self.sales_table_model.setData(col_index[2], self.transaction_products[row][2], Qt.ItemDataRole.EditRole)
+        total_price = str(self.transaction_products[row][2] * self.transaction_products[row][3])
+        self.sales_table_model.setData(col_index[3], total_price, Qt.ItemDataRole.EditRole)
+        
     def remove_single_quantity_from_sales(self):
         row = self.get_selected_sales_listing_row()
         if row or row == 0:
             if self.transaction_products[row][2] > 1:
                 self.transaction_products[row][2] -= 1
-                
-                col_index = self.sales_table_view.selectedIndexes()
-                self.sales_table_model.setData(col_index[2], self.transaction_products[row][2], Qt.ItemDataRole.EditRole)
-                total_price = str(self.transaction_products[row][2] * self.transaction_products[row][3])
-                self.sales_table_model.setData(col_index[3], total_price, Qt.ItemDataRole.EditRole)
-                
+                self.update_product_sale_row(row)
                 self.get_total_values()
             else:
                 self.remove_product_from_sales()
@@ -393,15 +398,16 @@ class POSMainWindow(QMainWindow):
         
     def add_product_quantity_in_sales_table(self, quantity: int):
         row = self.get_selected_sales_listing_row()
-        if row:
+        if row or row == 0:
             self.transaction_products[row][2] += quantity
-            
-            col_index = self.sales_table_view.selectedIndexes()
-            self.sales_table_model.setData(col_index[2], self.transaction_products[row][2], Qt.ItemDataRole.EditRole)
-            total_price = str(self.transaction_products[row][2] * self.transaction_products[row][3])
-            self.sales_table_model.setData(col_index[3], total_price, Qt.ItemDataRole.EditRole)
-
+            self.update_product_sale_row(row)
             self.get_total_values()
+            
+    def replace_product_quantity_in_sales_table(self, quantity: int):
+        row = self.get_selected_sales_listing_row()
+        self.transaction_products[row][2] = quantity
+        self.update_product_sale_row(row)
+        self.get_total_values()
             
     def select_upper_product(self):
         row = self.get_selected_sales_listing_row()
@@ -613,18 +619,25 @@ class POSMainWindow(QMainWindow):
                 self.set_products_positions(product_max_cols)
         
     def update_window_on_signal(self, data):
-        if data:
-            print(data)
-        cols = self.categories_buttons_layout.columnCount()
-        self.clean_categories(cols)
-        self.position_categories(cols)
+        if isinstance(data, int):
+            self.replace_product_quantity_in_sales_table(data)
+        else:
+            if data == 'categories':
+                cols = self.categories_buttons_layout.columnCount()
+                self.clean_categories(cols)
+                self.position_categories(cols)
+            if data == 'products' or data == 'favorites':
+                cols = self.products_buttons_layout.columnCount()
+                self.clean_product_buttons(cols)
+                self.set_products_positions(cols)
 
     def open_qdialog(self, new_window: POSDialog):
         open_qdialog = new_window
         open_qdialog.qdialog_signal.connect(self.update_window_on_signal)
         open_qdialog.exec()
-        
+                
 class ChangeProductSaleQuantity(POSDialog):
+    qdialog_signal = pyqtSignal(int)
     def __init__(self, product: str, quantity: int, *args, **kwargs):
         self.product = product
         self.quantity = quantity
@@ -804,6 +817,12 @@ class FavoritesWindow(POSDialog):
 
         self.favorites_table.show()
         
+    def mousePressEvent(self, event):
+        if not self.select_product_table.rect().contains(self.select_product_table.mapFromGlobal(event.globalPosition()).toPoint()):
+            self.select_product_table.clearSelection()
+        if not self.favorites_table.rect().contains(self.favorites_table.mapFromGlobal(event.globalPosition()).toPoint()):
+            self.favorites_table.clearSelection()
+        
     def select_upper_row(self, table_view: QTableView, row_number: int):
         if table_view == self.select_product_table:
             self.favorites_table.clearSelection()
@@ -885,17 +904,17 @@ class FavoritesWindow(POSDialog):
                             set_favorite = False
                         else:
                             set_favorite = True
-                        change_favorite_product_stauts(session, prod_id, set_favorite)
-                        self.set_products_table_model()
-                        self.set_favorites_table_model()
-                        
+                        change_favorite_product_stauts(session, prod_id, set_favorite)                        
             else:
                 name = self.favorites_table_model.index(row, 0).data()
                 for key, product in self.favorite_contents.items():
                     if product[0] == name:
                         prod_id = key
                         change_favorite_product_stauts(session, prod_id, False)
-                        self.set_products_table_model()
-                        self.set_favorites_table_model()
 
-        
+            self.set_products_table_model()
+            self.set_favorites_table_model()       
+            self.emit_signal()
+
+    def emit_signal(self):
+        self.qdialog_signal.emit('favorites')

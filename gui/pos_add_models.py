@@ -448,6 +448,7 @@ class ProductWindow(POSDialog):
         message_title = 'Produto Criado'
         message_content = [f'Criado produto {name} em {category}']
         message_window = MessageWindow(message_title, message_content)
+        self.emit_signal()
         open_new_window(message_window)
         
     def create_switch_order_product(self, name: str, price: dec, category: str, iva_value: int, order_num: int,
@@ -464,6 +465,9 @@ class ProductWindow(POSDialog):
         self.product_price_line_edit.setText('')
         self.product_description_line_edit.setText('')
         self.set_product_spinbox_values()
+        
+    def emit_signal(self):
+        self.qdialog_signal.emit('products')
                   
 class SetEditCategoryWindow(SetEditOptionsWindow):
     def __init__(self):
@@ -521,6 +525,17 @@ class SetEditCategoryWindow(SetEditOptionsWindow):
         self.remove_listing()
         self.remove_listing()
         self.set_types_list()
+        
+    def emit_signal(self):
+        self.qdialog_signal.emit('categories')
+        
+    def remove_row(self, name: str):
+        super().remove_row(name)
+        self.emit_signal()
+        
+    def edit_row(self, name:str , new_name: str, value: str, new_value: str):
+        super().edit_row(name, new_name, value, new_value)
+        self.emit_signal()
 
 class SetEditIVAWindow(SetEditOptionsWindow):
     def __init__(self):

@@ -12,7 +12,7 @@ FONT_TYPE_BOLD.setWeight(QFont.Weight.Bold)
 STYLE = get_stylesheet()
 
 class POSDialog(QDialog):
-    qdialog_signal = pyqtSignal(int)
+    qdialog_signal = pyqtSignal(str)
     def __init__(self, *args, **kwargs):
         super(POSDialog, self).__init__(*args, **kwargs)
         self.setFont(FONT_TYPE)
@@ -20,10 +20,7 @@ class POSDialog(QDialog):
 
         if self.set_widgets_placements():
             self.set_widgets_placements()
-            
-    def emit_signal(self):
-        self.qdialog_signal.emit()
-            
+                        
 class SetEditOptionsWindow(POSDialog):
     ###
     ### Required fileds in __init__:
@@ -165,7 +162,6 @@ class SetEditOptionsWindow(POSDialog):
             self.remove_listing()
             self.remove_listing()
             self.set_types_list()
-        self.emit_signal()
         
     def edit_row(self, name:str , new_name: str, value: str, new_value: str):
         messages = self.validate_row(name, new_name, value, new_value)
@@ -178,7 +174,6 @@ class SetEditOptionsWindow(POSDialog):
             self.remove_listing()
             self.remove_listing()
             self.set_types_list()
-            self.emit_signal()
         else:
             message_title = "Erro de Edição"
             message_window = MessageWindow(message_title, messages)

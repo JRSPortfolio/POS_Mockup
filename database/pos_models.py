@@ -1,5 +1,6 @@
 from database.mysql_engine import Base
-from sqlalchemy import (Column, Integer, String, Numeric, ForeignKey, Date, Time, Boolean, UniqueConstraint)
+from sqlalchemy import (Column, Integer, String, Numeric, ForeignKey, Date, Time, Boolean, UniqueConstraint,
+                        func)
 from sqlalchemy.orm import relationship
 
 class Categoria(Base):
@@ -38,6 +39,21 @@ class Produto(Base):
     categoria = relationship('Categoria', back_populates = 'produto')
     iva_tipo = relationship('TipoIVA', back_populates = 'produto')
     venda = relationship('ProdutosVendidos', back_populates = 'produto')
+    alteracoes = relationship('MapaAleteracoeProduto', back_populates = 'produto')
+    
+class MapaAleteracoeProduto(Base):
+    __tablename__ = 'mapa_alteracoes_produto'
+    
+    alter_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
+    prod_id = Column(Integer, ForeignKey("produtos.prod_id"), nullable = False)
+    data_alteracao = Column(Date, default = func.current_date(), nullable = False)
+    hora_alteracao = Column(Time, default = func.current_timestamp(), nullable = False)
+    previous_name = Column(String(255), nullable = False)
+    previous_price = Column(Numeric(10, 2), nullable = False)
+    previous_price_without_iva = Column(Numeric(10, 2), nullable = False)
+    previous_iva_value = Column(Integer, nullable = False)
+    
+    produto = relationship('Produto', back_populates = 'alteracoes')
     
 class Utilizador(Base):
     __tablename__ = 'utilizador'
@@ -67,8 +83,8 @@ class Transacoes(Base):
     __tablename__ = 'transacoes'
     
     transacao_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
-    data_venda = Column(Date, nullable = False)
-    hora_venda = Column(Time, nullable = False)
+    data_venda = Column(Date, nullable = False, default = func.current_date())
+    hora_venda = Column(Time, nullable = False, default = func.current_timestamp())
     
     produto = relationship('ProdutosVendidos', back_populates = 'transacao')
 

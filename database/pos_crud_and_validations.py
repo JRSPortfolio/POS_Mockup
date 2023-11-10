@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, func
 
-from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes,
-                                 ProdutosVendidos)
+from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes, CategoriasUtilizador,
+                                 ProdutosVendidos, MapaAleteracoeProduto)
 from decimal import Decimal as dec
 import bcrypt
 
@@ -401,49 +401,73 @@ def get_product_by_name_and_category(db_session: Session, name: str, category: s
         return None
     
 def edit_product_values(db_session: Session, values: dict):
-    product = db_session.query(Produto).filter_by(prod_id = values['prod_id']).first()
-    iva_value = get_iva_value_by_id(db_session, values['iva_id'])
-    iva_price = set_iva_price(values['price'], values['iva_checkbox'], iva_value)
+    prod_id = values['prod_id']
+    name = values['name']
+    price = values['price']
+    iva_id = values['iva_id']
+    cat_id = values['cat_id']
+    order = values['ordem']
+    description = values['description']
+    active = values['ativo']
+    iva_checkbox = values['iva_checkbox']
+
+    product = db_session.query(Produto).filter_by(prod_id = prod_id).first()
+    iva_value = get_iva_value_by_id(db_session, iva_id)
+    iva_price = set_iva_price(price, iva_checkbox, iva_value)
     
-    if product.name != values['name']:
-        product.name = values['name']
+    if product.name != name:
+        product.name = name
         db_session.merge(product)
 
-    if values['iva_checkbox']:
-        if product.price != values['price']:
-            product.price = values['price']
+    if iva_checkbox:
+        if product.price != price:
+            product.price = price
             product.price_withouth_iva = iva_price
             db_session.merge(product)
     else:
-        if product.price_withouth_iva != values['price']:
-            product.price_withouth_iva = values['price']
+        if product.price_withouth_iva != price:
+            product.price_withouth_iva = price
             product.price = iva_price
             db_session.merge(product)
 
-    if product.cat_id != values['cat_id']:
-        product.cat_id = values['cat_id']
+    if product.cat_id != cat_id:
+        product.cat_id = cat_id
         db_session.merge(product)
   
-    if product.iva_id != values['iva_id']:
-        product.iva_id = values['iva_id']
+    if product.iva_id != iva_id:
+        product.iva_id = iva_id
         db_session.merge(product)
         
-    if product.ordem != values['ordem'] and values['ativo']:
-        product.ordem = values['ordem']
+    if product.ordem !=  order and values['ativo']:
+        product.ordem = order
         db_session.merge(product)
 
-    if product.description != values['description']:
-        product.description = values['description']
+    if product.description != description:
+        product.description = description
         db_session.merge(product)
         
-    if product.ativo != values['ativo']:
-        product.ativo = values['ativo']
+    if product.ativo != active:
+        product.ativo = active
         db_session.merge(product)
         
     if not product.ativo:
         product.ordem = None
         db_session.merge(product)
         
+    db_session.commit()
+    db_session.close()
+    
+    if iva_checkbox:
+        add_product_alteration_to_map(db_session, prod_id, name, price, iva_price, iva_value)
+    else:
+        add_product_alteration_to_map(db_session, prod_id, name, iva_price, price, iva_value)
+        
+def add_product_alteration_to_map(db_session: Session, prod_id: int, name: str, price: dec, price_w_iva: dec,
+                                  iva_value: int):
+    alteration = MapaAleteracoeProduto(prod_id = prod_id, previous_name = name, previous_price = price,
+                                       previous_price_without_iva = price_w_iva, previous_iva_value = iva_value)
+    db_session.add(alteration)
+    db_session.merge(alteration)
     db_session.commit()
     db_session.close()
     
@@ -471,13 +495,21 @@ def reorder_products_order(db_session: Session, category: str, order: int):
     
 def remove_product_by_order_name(db_session: Session, order_name: str):
     product =  db_session.query(Produto).filter_by(ordem = order_name).first()
+    product_id = product.prod_id
+    alterations = db_session.query(MapaAleteracoeProduto).filter_by(prod_id = product_id).all()
+    if alterations:
+        for alteration in alterations:
+            db_session.delete(alteration)
+            db_session.commit()
+    
     db_session.delete(product)
     db_session.commit()
     db_session.close()
     
 def get_products_from_category(db_session: Session, category: str):
     category_id = get_category_id_by_name(db_session, category)
-    products = db_session.query(Produto).filter_by(cat_id = category_id).all()
+    products = db_session.query(Produto).filter(Produto.cat_id == category_id,
+                                                Produto.ativo == True).order_by(Produto.ordem).all()
     
     products_dict = {}
     for product in products:
@@ -487,7 +519,7 @@ def get_products_from_category(db_session: Session, category: str):
     return products_dict
 
 def get_favorite_products(db_session: Session):
-    products = db_session.query(Produto).filter(Produto.favorite).order_by(Produto.cat_id).all()
+    products = db_session.query(Produto).filter(Produto.favorite).order_by(Produto.ordem).all()
     
     products_dict = {}
     for product in products:
@@ -548,6 +580,16 @@ def get_product_sale_fields(db_session: Session, product_id: int):
     
     db_session.close()
     return product_items
+
+def check_if_product_sold(db_session: Session, order_name: str):
+    prod_id = db_session.query(Produto).filter_by(ordem = order_name).value(Produto.prod_id)
+    product = db_session.query(ProdutosVendidos).filter_by(prod_id = prod_id).first()
+    if product:
+        db_session.close()
+        return ['Não pode remover um produto que já foi transacionado']
+    else:
+        db_session.close()
+        return None
         
 # ###
 ###
