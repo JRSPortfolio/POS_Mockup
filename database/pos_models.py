@@ -11,7 +11,6 @@ class Categoria(Base):
     description = Column(String(255), nullable = True)
     
     produto = relationship('Produto', back_populates = 'categoria')
-    utilizadores = relationship('CategoriasUtilizador', back_populates = 'categoria')
     
 class TipoIVA(Base):
     __tablename__ = 'tipo_iva'
@@ -34,12 +33,12 @@ class Produto(Base):
     ordem = Column(String(255), nullable = True, unique = True)
     ativo = Column(Boolean, nullable = False)
     description = Column(String(255), nullable = True)
-    favorite = Column(Boolean, nullable = False, default = False)
     
     categoria = relationship('Categoria', back_populates = 'produto')
     iva_tipo = relationship('TipoIVA', back_populates = 'produto')
     venda = relationship('ProdutosVendidos', back_populates = 'produto')
     alteracoes = relationship('MapaAleteracoeProduto', back_populates = 'produto')
+    utilizador = relationship('FavoritosUtilizador', back_populates='produto')
     
 class MapaAleteracoeProduto(Base):
     __tablename__ = 'mapa_alteracoes_produto'
@@ -65,19 +64,19 @@ class Utilizador(Base):
     password = Column(String(255), nullable = True)
     ativo = Column(Boolean, nullable = False)
     
-    categorias = relationship('CategoriasUtilizador', back_populates='utilizador')
+    produto = relationship('FavoritosUtilizador', back_populates='utilizador')
     
-class CategoriasUtilizador(Base):
-    __tablename__ = 'categorias_utilizador'
+class FavoritosUtilizador(Base):
+    __tablename__ = 'favoritos_utilizador'
     
     cat_user_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
     user_id = Column(Integer, ForeignKey('utilizador.user_id'))
-    cat_id = Column(Integer, ForeignKey('categorias.cat_id'))
+    prod_id = Column(Integer, ForeignKey('produtos.prod_id'))
     
-    __table_args__ = (UniqueConstraint('user_id', 'cat_id', name='uq_user_cat_pair'),)
+    __table_args__ = (UniqueConstraint('user_id', 'prod_id', name='uq_user_prod_pair'),)
     
-    utilizador = relationship('Utilizador', back_populates='categorias')
-    categoria = relationship('Categoria', back_populates='utilizadores')
+    utilizador = relationship('Utilizador', back_populates='produto')
+    produto = relationship('Produto', back_populates='utilizador')
     
 class Transacoes(Base):
     __tablename__ = 'transacoes'

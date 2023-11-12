@@ -253,6 +253,15 @@ class OptionsSelectionWindow(POSDialog):
         self.close()
         open_new_window(self.add_aditional_window)
         
+class NoUsersOptionWindow(OptionsSelectionWindow):
+    def __init__(self, open_signaling_qdialog: POSDialog, *args, **kwargs):
+        self.open_qdialog = open_signaling_qdialog
+        super(NoUsersOptionWindow, self).__init__(*args, **kwargs)
+
+    def open_window(self):
+        self.close()
+        self.open_qdialog(self.add_value_window)
+        
 class NewProductOrderWindow(OptionsSelectionWindow):
     def __init__(self, product_name: str, price: dec, category: str, iva_value: int, order_num: int,
                  description: str, iva_checkbox: bool, new_order_num: int, existing_product_name: str,
@@ -565,10 +574,7 @@ class SalesTotalFrame(QFrame):
     def update_value(self, value: dec):
         value = str(value)
         self.value_label.setText(f'{value}€')
-        
-                            
+               
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
     open_qdialog.exec()
-
-    

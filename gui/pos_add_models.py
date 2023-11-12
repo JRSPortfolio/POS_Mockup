@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QCheckBox, QSpinBox)
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from database.pos_crud_and_validations import (create_db_category, validate_category_name, get_categories_list, create_db_tipo_iva,
                                validate_iva_input, get_iva_value_by_name, remove_iva_by_name, change_iva_by_name, validate_iva_name,
                                validate_iva_value, get_tipo_iva_list, remove_category_by_name, change_category_by_name,
@@ -183,8 +183,8 @@ class UserWindow(POSDialog):
             message_title = "Utilizador Criado"
             message_window = MessageWindow(message_title, [f'Criado Utilizador {username}!'])
             open_new_window(message_window)
+            self.emit_signal()
             self.clear_user_window()
-            
         else:
             self.error_message(messages)
             
@@ -214,6 +214,11 @@ class UserWindow(POSDialog):
             else:
                 edit_db_user(session, user_id, name, username, active_check, admin_check)
                 self.sucess_edit_message(username)
+                
+            if self.current_user_dict['username'] == username:
+                self.emit_signal()
+            else:
+                self.emit_signal()
             self.clear_user_window()
         else:
             self.error_message(messages)
@@ -256,7 +261,8 @@ class UserWindow(POSDialog):
             message = [f'Removido Utilizador {username}']
             message_window = MessageWindow(title, message)
             open_new_window(message_window)
-            self.clear_user_window()     
+            self.emit_signal()
+            self.clear_user_window()
                  
     def clear_user_window(self):
         try:
@@ -277,6 +283,8 @@ class UserWindow(POSDialog):
         except AttributeError:
             pass
         
+    def emit_signal(self):
+        self.qdialog_signal.emit('username')
     
 class ProductWindow(POSDialog):
     def __init__(self, category_list: list, iva_list: list):
@@ -617,50 +625,32 @@ class SetEditIVAWindow(SetEditOptionsWindow):
         self.remove_listing()
         self.set_types_list()
 
-def open_AddProductWindow():
+def open_AddProductWindow(open_window):
     category_list = get_categories_list(session)
     iva_list = get_tipo_iva_list(session)
     if category_list and iva_list:
         add_product = ProductWindow(category_list, iva_list) 
-        open_new_window(add_product)
+        open_window(add_product)
     elif iva_list and not category_list:
         title = "Sem Categorias"
         message = "É necessário Categorias para adicionar Produto.\nCriar Categoria?"
         button_title = "Criar Categoria"
         new_window = OptionsSelectionWindow(title, message, button_title, SetEditCategoryWindow())
-        open_new_window(new_window)
+        open_window(new_window)
     elif category_list and not iva_list:
         title = "Sem Taxas de IVA"
         message = "É necessário Taxas de IVA para adicionar Produto.\nCriar Taxa de IVA?"
         button_title = "Criar Taxa de IVA"
         new_window = OptionsSelectionWindow(title, message, button_title, SetEditIVAWindow())
-        open_new_window(new_window)
+        open_window(new_window)
     else:
         title = "Campos em Falta"
         message = "É necessário Categorias e Taxas de IVA para adicionar Produto.\n\nCriar Categoria/Taxa de IVA?"
         button_title = "Criar Categoria"
         second_button_title = "Criar Taxa de IVA"
         new_window = OptionsSelectionWindow(title, message, button_title, SetEditCategoryWindow(), second_button_title, SetEditIVAWindow())
-        open_new_window(new_window)
-        
-def open_editable_UserWindow():
-    title = 'Utilizador'
-    user_cb = 'Ativo'
-    create_button = 'Editar Utilizador'
-    edit = check_users_exist(session)
-    if not edit:
-        no_users_window()
-    else:   
-        window = UserWindow(title = title, user_cb = user_cb, create_button = create_button,
-                             edit = edit)
-        open_new_window(window)
+        open_window(new_window)
 
-def no_users_window():
-    title = 'Sem Utilizadores'
-    message = 'Sem Utilizadore criados, criar Utilizador?'
-    create_button = 'Criar Utilizador'
-    window = OptionsSelectionWindow(title, message, create_button, UserWindow())
-    open_new_window(window)
         
         
         

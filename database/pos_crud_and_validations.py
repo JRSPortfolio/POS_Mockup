@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, func
 
-from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes, CategoriasUtilizador,
+from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes, FavoritosUtilizador,
                                  ProdutosVendidos, MapaAleteracoeProduto)
 from decimal import Decimal as dec
 import bcrypt
@@ -513,62 +513,37 @@ def get_products_from_category(db_session: Session, category: str):
     
     products_dict = {}
     for product in products:
-        products_dict[product.prod_id] = [product.name, product.price]
+        iva_value = str(get_iva_value_by_id(db_session, product.iva_id)) + '%'
+        products_dict[product.prod_id] = [product.name , product.price, iva_value]
     
     db_session.close()   
     return products_dict
 
-def get_favorite_products(db_session: Session):
-    products = db_session.query(Produto).filter(Produto.favorite).order_by(Produto.ordem).all()
+def get_favorite_products(db_session: Session, username: str):
+    user_id = db_session.query(Utilizador).filter_by(username = username).value(Utilizador.user_id)
+    products = db_session.query(Produto).join(FavoritosUtilizador, FavoritosUtilizador.prod_id == Produto.prod_id).join(
+                                Utilizador, FavoritosUtilizador.user_id == Utilizador.user_id).filter(
+                                Utilizador.user_id == user_id).order_by(Produto.ordem).all()
     
     products_dict = {}
     for product in products:
-        products_dict[product.prod_id] = [product.name, product.price]
+        iva_value = str(get_iva_value_by_id(db_session, product.iva_id)) + '%'
+        products_dict[product.prod_id] = [product.name , product.price, iva_value]
     
     db_session.close()
     return products_dict
 
-def get_products_for_favorite_listing(db_session: Session, category: str):
-    category_id = get_category_id_by_name(db_session, category)
-    products = db_session.query(Produto).filter(Produto.cat_id == category_id, Produto.ativo == True).order_by(Produto.cat_id).all()
-    
-    product_items = {}
-    
-    for prod in products:
-        iva_value = str(get_iva_value_by_id(db_session, prod.iva_id)) + '%'
-        if prod.favorite:
-            favorite_mark = 'X'
-        else:
-            favorite_mark = None
-        product_items[prod.prod_id] = [prod.name ,str(prod.price), iva_value, favorite_mark]
         
-    db_session.close()  
-    return product_items
-    
-def get_favorite_marked_products(db_session: Session):
-    products = db_session.query(Produto).filter_by(favorite = True).order_by(Produto.cat_id).all()
-    
-    product_items = {}
-    
-    for prod in products:
-        iva_value = str(get_iva_value_by_id(db_session, prod.iva_id)) + '%'
-        if prod.favorite:
-            favorite_mark = 'X'
-        else:
-            favorite_mark = None
-        product_items[prod.prod_id] = [prod.name ,str(prod.price), iva_value, favorite_mark]
-    
-    db_session.close()
-    return product_items
-    
-def change_favorite_product_stauts(db_session: Session, product_id: int, set_favorite: bool):
-    product = db_session.query(Produto).filter_by(prod_id = product_id).first()
+def change_favorite_product_stauts(db_session: Session, product_id: int, username: str, set_favorite: bool):
+    user_id = db_session.query(Utilizador).filter_by(username = username).value(Utilizador.user_id)
     if set_favorite:
-        product.favorite = True
+        favorite = FavoritosUtilizador(user_id = user_id, prod_id = product_id)
+        db_session.add(favorite)
     else:
-        product.favorite = False
+        favorite = db_session.query(FavoritosUtilizador).filter(FavoritosUtilizador.user_id == user_id,
+                                    FavoritosUtilizador.prod_id == product_id).first()
+        db_session.delete(favorite)
 
-    db_session.merge(product)
     db_session.commit()
     db_session.close()
     
@@ -747,6 +722,9 @@ def check_if_user_exists(db_session: Session, user_id: int):
 
 def remove_db_user(db_session: Session, user_id: int):
     db_user = db_session.query(Utilizador).filter_by(user_id = user_id).first()
+    favorites = db_session.query(FavoritosUtilizador).filter_by(user_id = user_id).all()
+    for favorite in favorites:
+        db_session.delete(favorite)
     db_session.delete(db_user)
     db_session.commit()
     db_session.close()
