@@ -96,7 +96,14 @@ class ProdutosVendidos(Base):
     
     produto = relationship('Produto', back_populates = 'venda')
     transacao = relationship('Transacoes', back_populates = 'produto')
-    
 
+class DadosEmpresa(Base):
+    __tablename__ = 'dados_empresa'
+    
+    empresa_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
+    nome = Column(String(255), nullable = False)
+    morada = Column(String(255), nullable = False)
+
+    
     
     

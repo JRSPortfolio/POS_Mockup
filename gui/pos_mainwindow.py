@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QGr
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QAction, QResizeEvent, QStandardItem
 
-from gui.pos_add_models import (UserWindow, SetEditCategoryWindow, open_AddProductWindow, SetEditIVAWindow)
+from gui.pos_add_models import (UserWindow, SetEditCategoryWindow, open_AddProductWindow, SetEditIVAWindow, SetCompanyInfo)
 from gui.pos_edit_models import EditRemoveProdutcsWindow
 from gui.pos_custom_widgets import(STYLE, MessageWindow, SquareOptionsButton, PaymentSectionButton,
                                    FONT_TYPE, RoundedComboBox, RoundedLeftLineEdit, HighOptionsButton, CategorySectionButton,
@@ -12,15 +12,17 @@ from gui.pos_custom_widgets import(STYLE, MessageWindow, SquareOptionsButton, Pa
 from database.pos_crud_and_validations import (get_users_usernames, check_if_admin_by_username, verify_hashed_password,
                                                get_user_password_by_username, create_hash_password, get_categories_list,
                                                get_products_from_category, change_favorite_product_stauts,
-                                               get_favorite_products, get_product_sale_fields, check_users_exist)
+                                               get_favorite_products, get_product_sale_fields, check_users_exist, get_dados_empresa,
+                                               )
 from gui.pos_mainwindow_gui_options import FavoritesWindow, ChangeProductSaleQuantity
 from database.mysql_engine import session
 from decimal import Decimal as dec
     
 class POSMainWindow(QMainWindow):
     def __init__(self):
-        self.user_info = {}
+        self.user_info = {'admin_status' : False}
         self.users_list = get_users_usernames(session)
+        self.dados_empresa = get_dados_empresa(session)
         super(POSMainWindow, self).__init__()
         self.setFont(FONT_TYPE)
         self.setStyleSheet(STYLE)
@@ -204,6 +206,8 @@ class POSMainWindow(QMainWindow):
 
         self.payment_section_layout.addWidget(print_button)
         self.payment_section_layout.addWidget(payment_button)
+        
+        print_button.clicked.connect(self.print_sales_listed_items)
     
     def set_categories(self):
         self.favorites_button = CategorySectionButton('Favoritos')
@@ -487,7 +491,7 @@ class POSMainWindow(QMainWindow):
                         
     def set_app_widget(self):
         self.baseWidget.setCurrentIndex(0)
-        self.setWindowTitle(f"POS - {self.user_info['username']}")
+        self.setWindowTitle(f"{self.dados_empresa['nome']} - {self.user_info['username']}")
         
     def set_login_widgets(self):
         login_layout = QVBoxLayout(self.loginWidget)
@@ -544,34 +548,35 @@ class POSMainWindow(QMainWindow):
         
     def login_check(self):
         username =  self.login_user_combo_box.currentText()
-        if self.admin_check:
-            password = self.login_password_line_edit.text()
-            db_hashed_password = get_user_password_by_username(session, username)
-            messages = verify_hashed_password(password, db_hashed_password)
-            if not messages:
+        if username:
+            if self.admin_check:
+                password = self.login_password_line_edit.text()
+                db_hashed_password = get_user_password_by_username(session, username)
+                messages = verify_hashed_password(password, db_hashed_password)
+                if not messages:
+                    self.user_info['username'] = username
+                    self.user_info['admin_status'] = self.admin_check
+                    self.login_password_line_edit.clear()
+                    self.set_app_widget()
+                else:
+                    self.login_password_line_edit.clear()
+                    title = 'Password Incorreta'
+                    window = MessageWindow(title, messages)
+                    self.open_qdialog(window)
+            else:
                 self.user_info['username'] = username
                 self.user_info['admin_status'] = self.admin_check
-                self.login_password_line_edit.clear()
                 self.set_app_widget()
-            else:
-                self.login_password_line_edit.clear()
-                title = 'Password Incorreta'
-                window = MessageWindow(title, messages)
-                self.open_qdialog(window)
-        else:
-            self.user_info['username'] = username
-            self.user_info['admin_status'] = self.admin_check
-            self.set_app_widget()
-        
-        
+            
+            
 
-        prod_cols = self.products_buttons_layout.columnCount()
-        for category in self.categories_buttons.keys():
-            self.categories_buttons[category].setChecked(False)
-        if prod_cols:
-            self.clean_product_buttons(prod_cols)
-        if self.sales_table_model.rowCount() != 0:
-            self.clean_sales_listing()
+            prod_cols = self.products_buttons_layout.columnCount()
+            for category in self.categories_buttons.keys():
+                self.categories_buttons[category].setChecked(False)
+            if prod_cols:
+                self.clean_product_buttons(prod_cols)
+            if self.sales_table_model.rowCount() != 0:
+                self.clean_sales_listing()
                 
     def open_editable_UserWindow(self):
         title = 'Utilizador'
@@ -611,8 +616,10 @@ class POSMainWindow(QMainWindow):
         cat_prod_menu.addAction(category_action)
         cat_prod_menu.addAction(add_product_action)
         cat_prod_menu.addAction(edit_cat_prod_action)
-                
+        
+        set_edit_company = QAction('Dados Empresa', self)
         set_iva_action = QAction('IVA', self)
+        options_menu.addAction(set_edit_company)
         options_menu.addAction(set_iva_action)
         
         add_user_action.triggered.connect(lambda: self.open_qdialog(UserWindow()))
@@ -620,8 +627,14 @@ class POSMainWindow(QMainWindow):
         category_action.triggered.connect(lambda: self.open_qdialog_admin(SetEditCategoryWindow()))
         add_product_action.triggered.connect(lambda: open_AddProductWindow(self.open_qdialog_admin))
         edit_cat_prod_action.triggered.connect(lambda: self.open_qdialog_admin(EditRemoveProdutcsWindow()))
+        set_edit_company.triggered.connect(self.set_company_data)
         set_iva_action.triggered.connect(lambda: self.open_qdialog_admin(SetEditIVAWindow()))
-                
+    
+    def set_company_data(self):
+        self.open_qdialog_admin(SetCompanyInfo(self.dados_empresa))
+        self.dados_empresa = get_dados_empresa(session)
+        self.setWindowTitle(f"{self.dados_empresa['nome']} - {self.user_info['username']}")
+              
     def resizeEvent(self, a0: QResizeEvent | None) -> None:        
         self.in_resize()
         return super().resizeEvent(a0)
@@ -693,5 +706,6 @@ class POSMainWindow(QMainWindow):
         open_qdialog.qdialog_signal.connect(self.update_window_on_signal)
         open_qdialog.exec()
 
-    def print_sales_listed_items(self):
+    def print_sales_listed_items(self):        
         ...
+

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import asc, func
 
 from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes, FavoritosUtilizador,
-                                 ProdutosVendidos, MapaAleteracoeProduto)
+                                 ProdutosVendidos, MapaAleteracoeProduto, DadosEmpresa)
 from decimal import Decimal as dec
 import bcrypt
 
@@ -747,7 +747,56 @@ def get_users_usernames(db_session: Session):
 def get_user_password_by_username(db_session: Session, username: str):
     password = db_session.query(Utilizador).filter_by(username = username).value(Utilizador.password)
     return password
+
+###
+###
+### DadosEmpresa
+###
+###
+
+def get_dados_empresa(db_session: Session):
+    fields = db_session.query(DadosEmpresa).first()
     
+    dados_empresa = {'nome' : '', 'morada' : ''}
+    if fields:
+        dados_empresa['nome'] = fields.nome
+        dados_empresa['morada'] = fields.morada
+        
+    db_session.close()
+    return dados_empresa
+
+def set_dados_empresa(db_session: Session, nome: str, morada: str):
+    fields = db_session.query(DadosEmpresa).first()
+    if fields:    
+        if fields.nome != nome:
+            fields.nome = nome
+            db_session.merge(fields)
+        
+        if fields.morada != morada:
+            fields.morada = morada
+            db_session.merge(fields)
+    else:
+        empresa = DadosEmpresa(nome = nome, morada = morada)
+        db_session.add(empresa)
+        
+    db_session.commit()
+    db_session.close()
+    
+def validate_dados_empresa(nome: str, morada: str):
+    messages = []
+    if validate_campo_empresa(nome):
+        messages.append(["Nome de empresa não pode estar vazio!"])
+    if validate_campo_empresa(morada):
+        messages.append(["Morada de empresa não pode estar vazio!"])
+            
+    return messages
+      
+def validate_campo_empresa(field: str):
+    if len(field) == 0 or field.isspace():
+        return True
+    else:
+        return False
+        
 ###
 ###
 ### Transacoes

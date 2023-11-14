@@ -9,7 +9,8 @@ from database.pos_crud_and_validations import (create_db_category, validate_cate
                                get_users_dict, get_user_by_username, edit_db_user, validate_edit_user_input, check_if_admin_by_id,
                                remove_db_user, check_if_user_exists, check_users_exist, get_remainig_categories,
                                replace_categories_in_products, check_if_products_in_category, replace_iva_in_products,
-                               check_if_products_in_iva, get_remainig_iva_types, dec)
+                               check_if_products_in_iva, get_remainig_iva_types, set_dados_empresa, validate_dados_empresa,
+                               dec)
 from database.mysql_engine import session
 from gui.pos_custom_widgets import (POSDialog, SetEditOptionsWindow, MessageWindow, OptionsSelectionWindow, open_new_window,
                                     HighOptionsButton, RoundedLeftLineEdit, RoundedComboBox, NewProductOrderWindow,
@@ -624,6 +625,60 @@ class SetEditIVAWindow(SetEditOptionsWindow):
         self.remove_listing()
         self.remove_listing()
         self.set_types_list()
+        
+class SetCompanyInfo(POSDialog):
+    def __init__(self, dados_empresa: dict):
+        self.empresa_nome = dados_empresa['nome']
+        self.empresa_morada = dados_empresa['morada']
+        super(SetCompanyInfo, self).__init__()
+
+    def set_widgets_placements(self):
+        self.setGeometry(200, 200, 400, 200)
+        self.setWindowTitle('Dados Empresa')
+                
+        empresa_layout = QVBoxLayout()
+        self.setLayout(empresa_layout)
+
+        empresa_fields_layout = QGridLayout()
+        empresa_buttons_layout = QHBoxLayout()
+        empresa_layout.addLayout(empresa_fields_layout)
+        empresa_layout.addLayout(empresa_buttons_layout)
+        
+        empresa_name_label = QLabel('Nome:')
+        self.empresa_name_line_edit = RoundedLeftLineEdit()
+        empresa_morada_label = QLabel('Morada:')
+        self.empresa_morada_line_edit = RoundedLeftLineEdit()
+        empresa_edit_button = HighOptionsButton('Editar')
+        empresa_close_button = HighOptionsButton('Fechar')
+        
+        self.empresa_name_line_edit.setText(self.empresa_nome)
+        self.empresa_morada_line_edit.setText(self.empresa_morada)
+        
+        empresa_fields_layout.addWidget(empresa_name_label, 0, 0)
+        empresa_fields_layout.addWidget(self.empresa_name_line_edit, 0, 1)
+        empresa_fields_layout.addWidget(empresa_morada_label, 1, 0)
+        empresa_fields_layout.addWidget(self.empresa_morada_line_edit, 1, 1)
+        empresa_buttons_layout.addWidget(empresa_edit_button)
+        empresa_buttons_layout.addWidget(empresa_close_button)
+        
+        empresa_edit_button.clicked.connect(self.edit_empresa_data)
+        empresa_close_button.clicked.connect(self.close)
+        
+    def edit_empresa_data(self):
+        nome = self.empresa_name_line_edit.text().strip()
+        morada = self.empresa_morada_line_edit.text().strip()
+        messages = validate_dados_empresa(nome, morada)
+        
+        title = 'Alteração de Dados Empresa'
+        if not messages:
+            set_dados_empresa(session, nome, morada)
+            message = ['Alteração de Dados de Empresa Efectuada!']
+            window = MessageWindow(title, message)
+            open_new_window(window)
+        else:
+            window = MessageWindow(title, messages)
+            open_new_window(window)
+        
 
 def open_AddProductWindow(open_window):
     category_list = get_categories_list(session)
