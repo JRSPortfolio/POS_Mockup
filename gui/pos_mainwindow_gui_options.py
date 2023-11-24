@@ -1,11 +1,13 @@
-from PyQt6.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QGridLayout, QTableView, QSpinBox, QHeaderView)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QStandardItem
+from PyQt6.QtWidgets import (QHBoxLayout, QVBoxLayout, QLabel, QGridLayout, QTableView, QSpinBox, QHeaderView,
+                             QStackedWidget, QWidget)
+from PyQt6.QtCore import Qt, pyqtSignal, QLocale
+from PyQt6.QtGui import QStandardItem, QDoubleValidator
 from gui.pos_custom_widgets import(RoundedComboBox, HighOptionsButton, POSDialog, ReadOnlyItemModel,
                                    TableSelectionUpButton, TableSelectionDownButton,FavoritesAddButton,
-                                   FavoritesRemButton)
-from database.pos_crud_and_validations import (get_categories_list, get_products_from_category, 
-                                               change_favorite_product_stauts, get_favorite_products)
+                                   FavoritesRemButton, PaymentSectionButton, RoundedLeftLineEdit, MessageWindow,
+                                   open_new_window, BoldQLabel, FONT_TYPE_BOLD)
+from database.pos_crud_and_validations import (get_categories_list, get_products_from_category, change_favorite_product_stauts,
+                                               get_favorite_products, set_new_sale)
 from database.mysql_engine import session
 from decimal import Decimal as dec
 
@@ -307,3 +309,145 @@ class FavoritesWindow(POSDialog):
 
     def emit_signal(self):
         self.qdialog_signal.emit('favorites')
+        
+class PaymentOptionsWindow(POSDialog):
+    def __init__(self, sales_list: list, total: str, username: str, *args, **kwargs):
+        self.sales_list = sales_list
+        self.total = total
+        self.username = username
+        super(PaymentOptionsWindow, self).__init__(*args, **kwargs)
+        
+    def set_widgets_placements(self):
+        self.setGeometry(200, 200, 400, 300)
+        self.setWindowTitle('Pagamento')
+        baseLayout = QVBoxLayout()
+        self.baseWidget = QStackedWidget()
+        self.paymentOptionsWidget = QWidget()
+        self.currencyPaymentWidget = QWidget()
+        self.cardPaymentWidget = QWidget()
+        
+        self.baseWidget.addWidget(self.paymentOptionsWidget)
+        self.baseWidget.addWidget(self.currencyPaymentWidget)
+        self.baseWidget.addWidget(self.cardPaymentWidget)
+        
+        baseLayout.addWidget(self.baseWidget)
+        self.setLayout(baseLayout)
+        
+        self.set_options_widget()
+        self.set_currency_payment()
+        self.set_card_payment()
+        
+        self.baseWidget.setCurrentIndex(0)
+        
+    def set_options_widget(self):
+        optionsWidgetLayout = QGridLayout(self.paymentOptionsWidget)
+        
+        currecy_payment_button = PaymentSectionButton('Numerário')
+        card_payment_button = PaymentSectionButton('Cartão')
+        close_button = HighOptionsButton('Fechar')
+        
+        optionsWidgetLayout.addWidget(currecy_payment_button, 0, 0)
+        optionsWidgetLayout.addWidget(card_payment_button, 0, 1)
+        optionsWidgetLayout.addWidget(close_button, 1, 0, 1 , 2, alignment = Qt.AlignmentFlag.AlignHCenter)
+        
+        currecy_payment_button.clicked.connect(lambda: self.baseWidget.setCurrentIndex(1))
+        card_payment_button.clicked.connect(lambda: self.baseWidget.setCurrentIndex(2))
+        close_button.clicked.connect(self.close)
+        
+    def set_currency_payment(self):
+        currencyWidgetLayout = QVBoxLayout(self.currencyPaymentWidget)
+        currencyWidgetLayoutItems = QGridLayout()
+        currencyWidgetLayoutButtons = QHBoxLayout()
+        currencyWidgetLayout.addLayout(currencyWidgetLayoutItems)
+        currencyWidgetLayout.addLayout(currencyWidgetLayoutButtons)
+        
+        total_label = BoldQLabel('Total:')
+        total_amount_label = BoldQLabel(f'{self.total}€')
+        paid_label = BoldQLabel('Entregue:')
+        self.paid_line_edit = RoundedLeftLineEdit()
+        change_label = BoldQLabel('Troco:')
+        self.change_amount_label = BoldQLabel('€')
+        payment_button = HighOptionsButton('Pagamento')
+        close_button = HighOptionsButton('Voltar')
+        
+        self.paid_line_edit.setFont(FONT_TYPE_BOLD)
+        
+        currencyWidgetLayoutItems.addWidget(total_label, 0, 0)
+        currencyWidgetLayoutItems.addWidget(total_amount_label, 0, 1)
+        currencyWidgetLayoutItems.addWidget(paid_label, 1, 0)
+        currencyWidgetLayoutItems.addWidget(self.paid_line_edit, 1, 1)
+        currencyWidgetLayoutItems.addWidget(change_label, 2, 0)
+        currencyWidgetLayoutItems.addWidget(self.change_amount_label, 2, 1)
+        currencyWidgetLayoutButtons.addWidget(payment_button, alignment = Qt.AlignmentFlag.AlignRight)
+        currencyWidgetLayoutButtons.addWidget(close_button, alignment = Qt.AlignmentFlag.AlignCenter)
+        
+        d_val = QDoubleValidator(0.0, 1000000.0, 2)
+        d_val.setLocale(QLocale(QLocale.Language.English, QLocale.Country.UnitedKingdom))
+        self.paid_line_edit.setValidator(d_val)
+        self.paid_line_edit.editingFinished.connect(self.set_change_amount_label)
+        payment_button.clicked.connect(self.currecy_payment)
+        close_button.clicked.connect(lambda: self.baseWidget.setCurrentIndex(0))
+        
+    def set_card_payment(self):
+        cardWidgetLayout = QVBoxLayout(self.cardPaymentWidget)
+        cardWidgetLayoutItems = QGridLayout()
+        cardWidgetLayoutButtons = QHBoxLayout()
+        cardWidgetLayout.addLayout(cardWidgetLayoutItems)
+        cardWidgetLayout.addLayout(cardWidgetLayoutButtons)
+        
+        total_label = BoldQLabel('Total:')
+        total_amount_label = BoldQLabel(f'{self.total}€')
+        payment_button = HighOptionsButton('Pagamento')
+        close_button = HighOptionsButton('Voltar')
+        
+        cardWidgetLayoutItems.addWidget(total_label, 0, 0)
+        cardWidgetLayoutItems.addWidget(total_amount_label, 0, 1)
+        cardWidgetLayoutButtons.addWidget(payment_button, alignment = Qt.AlignmentFlag.AlignRight)
+        cardWidgetLayoutButtons.addWidget(close_button, alignment = Qt.AlignmentFlag.AlignCenter)
+        
+        payment_button.clicked.connect(self.save_payment_values)
+        close_button.clicked.connect(lambda: self.baseWidget.setCurrentIndex(0))
+    
+    def set_change_amount_label(self):
+        change_amount = self.get_change_amount()
+        if isinstance(change_amount, dec):
+            self.change_amount_label.setText(f'{str(change_amount)}€')
+        else:
+            title = 'Valor Insuficiente'
+            window = MessageWindow(title, change_amount)
+            open_new_window(window)
+            
+    def get_change_amount(self):
+        total = dec(self.total)
+        if self.paid_line_edit.text():
+            delivered = dec(self.paid_line_edit.text()) 
+            change_value = delivered - total
+            if change_value < 0:
+                return ['Valor entregue insuficiente']
+            else:
+                return change_value.quantize(dec('0.00'))
+    
+    def currecy_payment(self):
+        change_amount = self.change_amount_label.text()
+        if not len(change_amount) == 0 or change_amount.isspace():
+            self.save_payment_values()
+             
+    def save_payment_values(self):
+        value = dec(self.total)
+        
+        set_new_sale(session, value, self.username, self.sales_list)
+        
+        title = 'Venda Efetuada'
+        message = ['Venda Efetuada']
+        window = MessageWindow(title, message)
+        open_new_window(window)
+        
+        self.emit_signal()
+        self.close()
+
+    def mousePressEvent(self, event):
+        if not self.paid_line_edit.rect().contains(self.paid_line_edit.mapFromGlobal(event.globalPosition()).toPoint()):
+            self.paid_line_edit.clearFocus()
+            
+    def emit_signal(self):
+        self.qdialog_signal.emit('print_receipt')

@@ -10,11 +10,11 @@ from gui.pos_custom_widgets import(STYLE, MessageWindow, SquareOptionsButton, Pa
                                    POSDialog, ReadOnlyItemModel, SmallOptionsButton, TinyAddButton, TinyRemButton, LargeThinButton,
                                    SalesTotalFrame, ProductListingUpButton, ProductListingDownButton, NoUsersOptionWindow)
 from database.pos_crud_and_validations import (get_users_usernames, check_if_admin_by_username, verify_hashed_password,
-                                               get_user_password_by_username, create_hash_password, get_categories_list,
-                                               get_products_from_category, change_favorite_product_stauts,
+                                               get_user_password_by_username, get_categories_list, get_products_from_category,
                                                get_favorite_products, get_product_sale_fields, check_users_exist, get_dados_empresa,
                                                )
-from gui.pos_mainwindow_gui_options import FavoritesWindow, ChangeProductSaleQuantity
+from gui.pos_mainwindow_gui_options import FavoritesWindow, ChangeProductSaleQuantity, PaymentOptionsWindow
+from assets.pos_print_forms import print_receipt
 from database.mysql_engine import session
 from decimal import Decimal as dec
     
@@ -208,6 +208,7 @@ class POSMainWindow(QMainWindow):
         self.payment_section_layout.addWidget(payment_button)
         
         print_button.clicked.connect(self.print_sales_listed_items)
+        payment_button.clicked.connect(self.open_payment_options)
     
     def set_categories(self):
         self.favorites_button = CategorySectionButton('Favoritos')
@@ -691,6 +692,9 @@ class POSMainWindow(QMainWindow):
                     self.set_user_login_combo_box()
                     if not self.users_list:
                         self.set_login_options()
+                case 'print_receipt':
+                    self.print_sales_listed_items()
+                    self.clean_sales_listing()
               
     def open_qdialog_admin(self, new_window: POSDialog):
         if self.user_info['admin_status']:
@@ -706,6 +710,27 @@ class POSMainWindow(QMainWindow):
         open_qdialog.qdialog_signal.connect(self.update_window_on_signal)
         open_qdialog.exec()
 
-    def print_sales_listed_items(self):        
-        ...
+    def print_sales_listed_items(self):
+        total = self.sales_total_value.value
+        
+        if self.sales_table_model.rowCount():
+            print_receipt(self.transaction_products, total, self.dados_empresa, self.user_info['username'])
+        else:
+            title = 'Sem Produtos'
+            message = ['Não existem produtos para imprimir']
+            window = MessageWindow(title, message)
+            self.open_qdialog(window)
+    
+    def open_payment_options(self):
+        total = self.sales_total_value.value
+        
+        if self.sales_table_model.rowCount():
+            window = PaymentOptionsWindow(self.transaction_products, total, self.user_info['username'])
+            self.open_qdialog(window)
+        else:
+            title = 'Sem Produtos'
+            message = ['Não existem produtos para efetuar pagamento']
+            window = MessageWindow(title, message)
+            self.open_qdialog(window)
+        
 

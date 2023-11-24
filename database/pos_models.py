@@ -65,13 +65,14 @@ class Utilizador(Base):
     ativo = Column(Boolean, nullable = False)
     
     produto = relationship('FavoritosUtilizador', back_populates='utilizador')
+    trasacao = relationship('Transacoes', back_populates = 'utilizador')
     
 class FavoritosUtilizador(Base):
     __tablename__ = 'favoritos_utilizador'
     
     cat_user_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
-    user_id = Column(Integer, ForeignKey('utilizador.user_id'))
-    prod_id = Column(Integer, ForeignKey('produtos.prod_id'))
+    user_id = Column(Integer, ForeignKey('utilizador.user_id'), nullable = False)
+    prod_id = Column(Integer, ForeignKey('produtos.prod_id'), nullable = False)
     
     __table_args__ = (UniqueConstraint('user_id', 'prod_id', name='uq_user_prod_pair'),)
     
@@ -84,7 +85,10 @@ class Transacoes(Base):
     transacao_id = Column(Integer, primary_key = True, autoincrement = True, nullable = False)
     data_venda = Column(Date, nullable = False, default = func.current_date())
     hora_venda = Column(Time, nullable = False, default = func.current_timestamp())
+    value = Column(Numeric(10, 2), nullable = False)
+    user_id = Column(Integer, ForeignKey('utilizador.user_id'), nullable = False)
     
+    utilizador = relationship('Utilizador', back_populates = 'trasacao')
     produto = relationship('ProdutosVendidos', back_populates = 'transacao')
 
 class ProdutosVendidos(Base):

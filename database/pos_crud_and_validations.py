@@ -4,6 +4,7 @@ from sqlalchemy import asc, func
 from database.pos_models import (Categoria, TipoIVA, Produto, Utilizador, Transacoes, FavoritosUtilizador,
                                  ProdutosVendidos, MapaAleteracoeProduto, DadosEmpresa)
 from decimal import Decimal as dec
+from datetime import date, datetime
 import bcrypt
 
 ###
@@ -454,14 +455,16 @@ def edit_product_values(db_session: Session, values: dict):
         product.ordem = None
         db_session.merge(product)
         
+    transacted_product = db_session.query(ProdutosVendidos).filter_by(prod_id = prod_id).first()
+    if transacted_product:
+        if iva_checkbox:
+            add_product_alteration_to_map(db_session, prod_id, name, price, iva_price, iva_value)
+        else:
+            add_product_alteration_to_map(db_session, prod_id, name, iva_price, price, iva_value)
+            
     db_session.commit()
     db_session.close()
-    
-    if iva_checkbox:
-        add_product_alteration_to_map(db_session, prod_id, name, price, iva_price, iva_value)
-    else:
-        add_product_alteration_to_map(db_session, prod_id, name, iva_price, price, iva_value)
-        
+       
 def add_product_alteration_to_map(db_session: Session, prod_id: int, name: str, price: dec, price_w_iva: dec,
                                   iva_value: int):
     alteration = MapaAleteracoeProduto(prod_id = prod_id, previous_name = name, previous_price = price,
@@ -737,7 +740,7 @@ def check_users_exist(db_session: Session):
         return False
     
 def get_users_usernames(db_session: Session):
-    users = db_session.query(Utilizador).all()
+    users = db_session.query(Utilizador).filter_by(ativo = True).all()
     usernames = []
     for user in users:
         usernames.append(user.username)
@@ -803,12 +806,30 @@ def validate_campo_empresa(field: str):
 ###
 ###
 
+def set_new_transaction(db_session: Session, value: dec, username: str):
+    user_id = db_session.query(Utilizador).filter_by(username = username).value(Utilizador.user_id)
+    transaction = Transacoes(value = value, user_id = user_id)
+    db_session.add(transaction)
+    db_session.commit()
+    return transaction.transacao_id
 
 ###
 ###
 ### ProdutosVendidos
 ###
 ###
+
+def set_new_sale(db_session: Session, value: dec, username: str, prod_list: list):
+    transacao_id = set_new_transaction(db_session, value, username)
+    
+    for list in prod_list:
+        for product in range(list[2]):
+            sale = ProdutosVendidos(prod_id = list[4], transacao_id = transacao_id)
+            db_session.add(sale)
+            db_session.merge(sale)
+            
+    db_session.commit()
+    db_session.close()
 
 def get_stylesheet():
     with open('assets//stylesheet.qss', 'r') as file:

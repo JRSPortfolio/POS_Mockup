@@ -1,7 +1,9 @@
+import typing
+from PyQt6 import QtCore
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                              QWidget, QComboBox, QCheckBox, QFrame)
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from PyQt6.QtGui import QFont, QIcon, QStandardItemModel
+from PyQt6.QtGui import QFont, QIcon, QStandardItemModel, QDoubleValidator, QTextCursor, QValidator
 from database.mysql_engine import session
 from database.pos_crud_and_validations import get_stylesheet
 from decimal import Decimal as dec
@@ -537,7 +539,8 @@ class RoundedLeftLineEdit(QLineEdit):
         super(RoundedLeftLineEdit, self).__init__(*args)
         self.setFont(FONT_TYPE)
         self.setFixedHeight(22)
-
+        self.focusOutSignal = pyqtSignal()
+        
 class RoundedComboBox(QComboBox):
     def __init__(self, *args):
         super(RoundedComboBox, self).__init__(*args)
@@ -572,9 +575,14 @@ class SalesTotalFrame(QFrame):
         self.setLayout(self.widget_layout)
         
     def update_value(self, value: dec):
-        value = str(value)
-        self.value_label.setText(f'{value}€')
-               
+        self.value = str(value)
+        self.value_label.setText(f'{self.value}€')
+        
+class BoldQLabel(QLabel):
+    def __init__(self, *args, **kwargs):
+        super(BoldQLabel, self).__init__(*args, **kwargs)
+        self.setFont(FONT_TYPE_BOLD)
+                       
 def open_new_window(new_window: POSDialog):
     open_qdialog = new_window
     open_qdialog.exec()
